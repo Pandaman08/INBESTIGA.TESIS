@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "dev:api": "npm run start:dev --workspace=apps/api",
-    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run start:dev --workspace=@inbestiga/api",
+    "dev:web": "npm run dev --workspace=@inbestiga/web",
     "prisma:generate": "npm run prisma:generate --workspace=apps/api",
     "prisma:push": "npm run prisma:push --workspace=apps/api",
     "prisma:seed": "npm run prisma:seed --workspace=apps/api",

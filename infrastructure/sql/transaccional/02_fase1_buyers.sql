@@ -53,34 +53,94 @@ BEGIN
 END
 GO
 
--- 4. BUYER (Entidad central de captación: datos de contacto y perfil académico)
+-- 4. BUYER (Entidad central de captación: datos de contacto y perfil académico según Diagrama E-R)
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'BUYER')
 BEGIN
     CREATE TABLE dbo.BUYER (
-        id NVARCHAR(50) PRIMARY KEY,
-        nombres NVARCHAR(100) NOT NULL,
-        apellidos NVARCHAR(100) NOT NULL,
+        id_buyer NVARCHAR(100) PRIMARY KEY,
+        tipo_perfil NVARCHAR(50) NULL, -- ESTUDIANTE, EGRESADO, PADRE_FAMILIA, APODERADO
+        nombre NVARCHAR(200) NOT NULL,
         whatsapp NVARCHAR(50) NOT NULL,
-        email NVARCHAR(150) NOT NULL,
+        correo NVARCHAR(150) NULL,
+        departamento NVARCHAR(100) NULL,
+        distrito NVARCHAR(100) NULL,
+        tipo_universidad NVARCHAR(50) NULL, -- PUBLICA, PRIVADA
+        sede NVARCHAR(100) NULL,
+        universidad NVARCHAR(200) NULL,
+        facultad NVARCHAR(200) NULL,
+        carrera NVARCHAR(200) NULL,
+        ciclo NVARCHAR(50) NULL, -- 8vo, 9no, 10mo, EGRESADO, BACHILLER
+        edad INT NULL,
+        financia_a_id_buyer NVARCHAR(100) NULL, -- Auto-relación: un buyer padre/familiar financia a un buyer estudiante
+        lead_score INT NOT NULL DEFAULT 0,
+        canal_captacion NVARCHAR(100) NULL,
+        fecha_registro DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+        -- Campos complementarios para compatibilidad con el funnel completo
+        nombres NVARCHAR(100) NULL,
+        apellidos NVARCHAR(100) NULL,
+        email NVARCHAR(150) NULL,
         universidadId NVARCHAR(50) NULL FOREIGN KEY REFERENCES dbo.UNIVERSIDAD(id),
         carreraId NVARCHAR(50) NULL FOREIGN KEY REFERENCES dbo.CARRERA(id),
         ubicacionId NVARCHAR(50) NULL FOREIGN KEY REFERENCES dbo.UBICACION(id),
         canalId NVARCHAR(50) NULL FOREIGN KEY REFERENCES dbo.CANAL(id),
         campanaId NVARCHAR(50) NULL FOREIGN KEY REFERENCES dbo.CAMPAÑA(id),
-        ciclo NVARCHAR(50) NULL, -- 9no, 10mo, EGRESADO, BACHILLER
-        tipoInvestigacion NVARCHAR(50) NULL, -- TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO
-        situacionLaboral NVARCHAR(50) NULL, -- PRACTICANTE, DEPENDIENTE, SOLO_ESTUDIA
+        tipoInvestigacion NVARCHAR(50) NULL,
+        situacionLaboral NVARCHAR(50) NULL,
         presupuestoAprox DECIMAL(10,2) NULL,
-        dolorPrincipal NVARCHAR(100) NULL, -- METODOLOGIA, ESTADISTICA, FALTA_TIEMPO
-        softwareRequerido NVARCHAR(50) NULL, -- SPSS, PYTHON, STATA, ATLAS_TI
+        dolorPrincipal NVARCHAR(200) NULL,
+        softwareRequerido NVARCHAR(50) NULL,
         plazoDefinidoDias INT NULL,
-        leadScore INT NOT NULL DEFAULT 0,
-        estadoFunnel NVARCHAR(50) NOT NULL DEFAULT 'BUYER', -- BUYER, LEAD, PAYER, CUSTOMER
+        estadoFunnel NVARCHAR(50) NOT NULL DEFAULT 'BUYER',
         consentimientoWhatsapp BIT NOT NULL DEFAULT 1,
-        fechaRegistro DATETIME2 NOT NULL DEFAULT GETDATE(),
-        fechaConversionLead DATETIME2 NULL
+        fechaConversionLead DATETIME2 NULL,
+
+        CONSTRAINT FK_BUYER_FinanciaA FOREIGN KEY (financia_a_id_buyer) REFERENCES dbo.BUYER(id_buyer)
     );
-    PRINT '✓ Tabla BUYER creada exitosamente.';
+    PRINT '✓ Tabla BUYER creada exitosamente según Diagrama E-R.';
+END
+GO
+
+-- 4.1 CATALOGO_SERVICIOS (Catálogo de paquetes y recargos según Diagrama E-R)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CATALOGO_SERVICIOS')
+BEGIN
+    CREATE TABLE dbo.CATALOGO_SERVICIOS (
+        servicioId NVARCHAR(100) PRIMARY KEY,
+        nombre_paquete NVARCHAR(200) NOT NULL,
+        incluye NVARCHAR(MAX) NOT NULL,
+        dirigido_a NVARCHAR(200) NOT NULL,
+        precio_base DECIMAL(10,2) NOT NULL,
+        recargo_urgencia_pct DECIMAL(5,2) NOT NULL DEFAULT 0.00
+    );
+    PRINT '✓ Tabla CATALOGO_SERVICIOS creada exitosamente.';
+END
+GO
+
+-- 4.2 DESCARGA_CONTENIDO (Descargas de recursos asociados a paquetes según Diagrama E-R)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DESCARGA_CONTENIDO')
+BEGIN
+    CREATE TABLE dbo.DESCARGA_CONTENIDO (
+        id_descarga NVARCHAR(100) PRIMARY KEY,
+        id_buyer NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id_buyer) ON DELETE CASCADE,
+        servicioId_asociado NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES dbo.CATALOGO_SERVICIOS(servicioId) ON DELETE CASCADE,
+        fecha_descarga DATETIME2 NOT NULL DEFAULT GETDATE()
+    );
+    PRINT '✓ Tabla DESCARGA_CONTENIDO creada exitosamente.';
+END
+GO
+
+-- 4.3 INTERACCION_RED_SOCIAL (Comportamiento y red social según Diagrama E-R)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'INTERACCION_RED_SOCIAL')
+BEGIN
+    CREATE TABLE dbo.INTERACCION_RED_SOCIAL (
+        id_interaccion NVARCHAR(100) PRIMARY KEY,
+        id_buyer NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id_buyer) ON DELETE CASCADE,
+        red_social NVARCHAR(100) NOT NULL,
+        tipo_interaccion NVARCHAR(100) NOT NULL,
+        tema_detectado NVARCHAR(200) NULL,
+        fecha DATETIME2 NOT NULL DEFAULT GETDATE()
+    );
+    PRINT '✓ Tabla INTERACCION_RED_SOCIAL creada exitosamente.';
 END
 GO
 
@@ -89,7 +149,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'FORMULARIO')
 BEGIN
     CREATE TABLE dbo.FORMULARIO (
         id NVARCHAR(50) PRIMARY KEY,
-        buyerId NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id) ON DELETE CASCADE,
+        buyerId NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id_buyer) ON DELETE CASCADE,
         datosJson NVARCHAR(MAX) NOT NULL,
         ip NVARCHAR(50) NULL,
         userAgent NVARCHAR(500) NULL,
@@ -99,13 +159,13 @@ BEGIN
 END
 GO
 
--- 6. INTERACCION (Rastro de comportamiento: visitas, clics, descargas)
+-- 6. INTERACCION (Rastro de comportamiento general del funnel)
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'INTERACCION')
 BEGIN
     CREATE TABLE dbo.INTERACCION (
         id NVARCHAR(50) PRIMARY KEY,
-        buyerId NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id) ON DELETE CASCADE,
-        tipo NVARCHAR(50) NOT NULL, -- VISITA, DESCARGA_LEAD_MAGNET, CLIC_ANUNCIO, MENSAJE_WHATSAPP
+        buyerId NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES dbo.BUYER(id_buyer) ON DELETE CASCADE,
+        tipo NVARCHAR(50) NOT NULL,
         detalle NVARCHAR(MAX) NULL,
         fechaHora DATETIME2 NOT NULL DEFAULT GETDATE()
     );

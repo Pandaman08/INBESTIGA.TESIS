@@ -63,6 +63,7 @@ export const api = {
 
   // Dashboard & ETL
   getDashboardOverview: () => fetchApi('/dashboard/overview'),
+  getExecutiveReports: () => fetchApi('/dashboard/reportes-ejecutivos'),
   runEtl: () => fetchApi('/etl/run', { method: 'POST' }),
   getEtlOverview: () => fetchApi('/etl/overview'),
 

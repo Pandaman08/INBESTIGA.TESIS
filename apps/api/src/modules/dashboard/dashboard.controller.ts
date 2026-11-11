@@ -12,4 +12,10 @@ export class DashboardController {
   async getOverview() {
     return this.dashboardService.getMetrics();
   }
+
+  @Get('reportes-ejecutivos')
+  @ApiOperation({ summary: 'Obtener reportes ejecutivos de Inteligencia de Negocios por cada fase del Funnel' })
+  async getExecutiveReports() {
+    return this.dashboardService.getExecutiveReports();
+  }
 }

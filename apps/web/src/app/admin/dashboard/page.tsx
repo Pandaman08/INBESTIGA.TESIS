@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   BarChart3,
   TrendingUp,
@@ -199,6 +200,14 @@ export default function DashboardPage() {
               {etlMessage}
             </span>
           )}
+
+          <Link
+            href="/admin/reportes"
+            className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5 transition-all"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+            <span>Reportes BI por Fase ➔</span>
+          </Link>
 
           <button
             onClick={handleRunEtl}

@@ -124,17 +124,88 @@ export const SCORING_CRITERIA_WEIGHTS = {
 } as const;
 
 // -----------------------------------------------------------------------------
+// Enums y Tipos de la Fase BUYER (Diagrama E-R)
+// -----------------------------------------------------------------------------
+export enum TipoPerfilBuyer {
+  ESTUDIANTE = 'ESTUDIANTE',
+  EGRESADO = 'EGRESADO',
+  PADRE_FAMILIA = 'PADRE_FAMILIA',
+  APODERADO = 'APODERADO',
+  OTRO = 'OTRO',
+}
+
+export enum TipoUniversidad {
+  PUBLICA = 'PUBLICA',
+  PRIVADA = 'PRIVADA',
+}
+
+export enum RedSocial {
+  TIKTOK = 'TIKTOK',
+  META_ADS = 'META_ADS',
+  FACEBOOK = 'FACEBOOK',
+  INSTAGRAM = 'INSTAGRAM',
+  LINKEDIN = 'LINKEDIN',
+  GOOGLE = 'GOOGLE',
+  OTRO = 'OTRO',
+}
+
+export enum TipoInteraccionRedSocial {
+  COMENTARIO = 'COMENTARIO',
+  MENSAJE_DIRECTO = 'MENSAJE_DIRECTO',
+  CLIC_ANUNCIO = 'CLIC_ANUNCIO',
+  COMPARTIDO = 'COMPARTIDO',
+  SEGUIDOR = 'SEGUIDOR',
+  DESCARGA = 'DESCARGA',
+}
+
+export interface CatalogoServicioItem {
+  servicioId: string;
+  nombrePaquete: string;
+  incluye: string;
+  dirigidoA: string;
+  precioBase: number;
+  recargoUrgenciaPct: number;
+}
+
+export interface DescargaContenidoItem {
+  idDescarga: string;
+  idBuyer: string;
+  servicioIdAsociado: string;
+  fechaDescarga: string | Date;
+}
+
+export interface InteraccionRedSocialItem {
+  idInteraccion: string;
+  idBuyer: string;
+  redSocial: string;
+  tipoInteraccion: string;
+  temaDetectado?: string;
+  fecha: string | Date;
+}
+
+// -----------------------------------------------------------------------------
 // Interfaces para Herramientas (AI Function Calling)
 // -----------------------------------------------------------------------------
 export interface BuyerProfile {
   id: string;
+  tipoPerfil?: string;
+  nombre?: string;
   nombres: string;
   apellidos: string;
   whatsapp: string;
   email: string;
+  correo?: string;
+  departamento?: string;
+  distrito?: string;
+  tipoUniversidad?: string;
+  sede?: string;
   universidad: string;
+  facultad?: string;
   carrera: string;
   ciclo: string;
+  edad?: number;
+  financiaAIdBuyer?: string;
+  canalCaptacion?: string;
   tipoInvestigacion: string;
   situacionLaboral?: string;
   dolorPrincipal?: string;
@@ -142,6 +213,7 @@ export interface BuyerProfile {
   presupuestoAprox?: number;
   leadScore: number;
   estadoFunnel: FunnelStage;
+  fechaRegistro?: string | Date;
 }
 
 export interface CalculateOfferInput {

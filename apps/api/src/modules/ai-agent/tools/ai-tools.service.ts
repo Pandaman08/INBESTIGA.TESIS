@@ -153,20 +153,54 @@ export class AiToolsService {
         const id = context.buyerId || args.buyerId;
         const buyer = await this.prisma.buyer.findUnique({
           where: { id },
-          include: { universidad: true, carrera: true, perfilNegociacion: true },
+          include: {
+            universidad: true,
+            carrera: true,
+            perfilNegociacion: true,
+            financiadoPor: true,
+            compradoresFinanciados: true,
+            descargasContenido: { include: { servicio: true } },
+            interaccionesRedSocial: true,
+          },
         });
         if (!buyer) return { error: 'Buyer no encontrado' };
         return {
+          id_buyer: buyer.id,
+          tipo_perfil: buyer.tipoPerfil,
+          nombre: buyer.nombre || `${buyer.nombres || ''} ${buyer.apellidos || ''}`.trim(),
           nombres: buyer.nombres,
           apellidos: buyer.apellidos,
-          universidad: buyer.universidad?.nombre || 'Universidad no especificada',
-          carrera: buyer.carrera?.nombre || 'Carrera no especificada',
+          whatsapp: buyer.whatsapp,
+          correo: buyer.correo || buyer.email,
+          departamento: buyer.departamento,
+          distrito: buyer.distrito,
+          tipo_universidad: buyer.tipoUniversidad,
+          sede: buyer.sede,
+          universidad: buyer.universidadNombre || buyer.universidad?.nombre || 'Universidad no especificada',
+          facultad: buyer.facultad,
+          carrera: buyer.carreraNombre || buyer.carrera?.nombre || 'Carrera no especificada',
           ciclo: buyer.ciclo,
+          edad: buyer.edad,
+          financia_a: buyer.compradoresFinanciados?.map((e) => e.nombre || `${e.nombres} ${e.apellidos}`.trim()),
+          financiado_por: buyer.financiadoPor ? (buyer.financiadoPor.nombre || `${buyer.financiadoPor.nombres} ${buyer.financiadoPor.apellidos}`.trim()) : null,
+          canal_captacion: buyer.canalCaptacion,
+          leadScore: buyer.leadScore,
           tipoInvestigacion: buyer.tipoInvestigacion,
           dolorPrincipal: buyer.dolorPrincipal,
           softwareRequerido: buyer.softwareRequerido,
           presupuestoAprox: buyer.presupuestoAprox,
-          leadScore: buyer.leadScore,
+          descargas_contenido: buyer.descargasContenido.map((d) => ({
+            paquete: d.servicio?.nombrePaquete,
+            precio_base: d.servicio?.precioBase,
+            recargo_urgencia_pct: d.servicio?.recargoUrgenciaPct,
+            fecha_descarga: d.fechaDescarga,
+          })),
+          interacciones_red_social: buyer.interaccionesRedSocial.map((i) => ({
+            red_social: i.redSocial,
+            tipo_interaccion: i.tipoInteraccion,
+            tema_detectado: i.temaDetectado,
+            fecha: i.fecha,
+          })),
         };
       }
 

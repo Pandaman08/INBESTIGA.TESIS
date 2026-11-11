@@ -108,12 +108,32 @@ model Contenido {
 // -----------------------------------------------------------------------------
 // Funnel IMPULSE: BUYER y LEAD
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 model Buyer {
-  id                    String        @id @default(uuid())
-  nombres               String
-  apellidos             String
-  whatsapp              String
-  email                 String
+  // Campos del Diagrama E-R oficial
+  id                    String        @id @default(uuid()) @map("id_buyer")
+  tipoPerfil            String?       @map("tipo_perfil") // ESTUDIANTE, EGRESADO, PADRE_FAMILIA, APODERADO
+  nombre                String?       @map("nombre")
+  whatsapp              String        @map("whatsapp")
+  correo                String?       @map("correo")
+  departamento          String?       @map("departamento")
+  distrito              String?       @map("distrito")
+  tipoUniversidad       String?       @map("tipo_universidad") // PUBLICA, PRIVADA
+  sede                  String?       @map("sede")
+  universidadNombre     String?       @map("universidad")
+  facultad              String?       @map("facultad")
+  carreraNombre         String?       @map("carrera")
+  ciclo                 String?       @map("ciclo") // 8vo, 9no, 10mo, EGRESADO, BACHILLER, MAESTRIA
+  edad                  Int?          @map("edad")
+  financiaAIdBuyer      String?       @map("financia_a_id_buyer")
+  leadScore             Int           @default(0) @map("lead_score")
+  canalCaptacion        String?       @map("canal_captacion")
+  fechaRegistro         DateTime      @default(now()) @map("fecha_registro")
+
+  // Campos adicionales para compatibilidad con el resto del funnel
+  nombres               String?
+  apellidos             String?
+  email                 String?
   universidadId         String?
   universidad           Universidad?  @relation(fields: [universidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   carreraId             String?
@@ -124,19 +144,23 @@ model Buyer {
   canal                 Canal?        @relation(fields: [canalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   campanaId             String?
   campana               Campana?      @relation(fields: [campanaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  ciclo                 String?       // 8vo, 9no, 10mo, EGRESADO, BACHILLER, MAESTRIA
   tipoInvestigacion     String?       // TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO, TESINA
   situacionLaboral      String?       // TRABAJA_TIEMPO_COMPLETO, MEDIO_TIEMPO, SOLO_ESTUDIA
   presupuestoAprox      Decimal?      @db.Decimal(10, 2)
   dolorPrincipal        String?       // METODOLOGIA, ESTADISTICA, ASESOR_NO_RESPONDE, FALTA_TIEMPO
   softwareRequerido     String?       // SPSS, R, PYTHON, ATLAS_TI, STATA
   plazoDefinidoDias     Int?          // Plazo en días deseado por el estudiante
-  leadScore             Int           @default(0)
   estadoFunnel          String        @default("BUYER") // BUYER, LEAD, PAYER, CUSTOMER
-  consentimientoWhatsapp Boolean       @default(true)
-  fechaRegistro         DateTime      @default(now())
+  consentimientoWhatsapp Boolean      @default(true)
   fechaConversionLead   DateTime?
 
+  // Relaciones del diagrama (Auto-relación financiamiento, descargas e interacciones)
+  financiadoPor         Buyer?        @relation("FinanciamientoBuyer", fields: [financiaAIdBuyer], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  compradoresFinanciados Buyer[]      @relation("FinanciamientoBuyer")
+  descargasContenido    DescargaContenido[]
+  interaccionesRedSocial InteraccionRedSocial[]
+
+  // Relaciones del funnel
   formularios           Formulario[]
   interacciones         Interaccion[]
   lead                  Lead?
@@ -147,6 +171,44 @@ model Buyer {
   customer              Customer?
 
   @@map("BUYER")
+}
+
+// -----------------------------------------------------------------------------
+// Catálogo de Servicios y Recursos (Fase BUYER / Diagrama E-R)
+// -----------------------------------------------------------------------------
+model CatalogoServicios {
+  servicioId         String              @id @default(uuid()) @map("servicioId")
+  nombrePaquete      String              @map("nombre_paquete")
+  incluye            String              @db.NVarChar(Max) @map("incluye")
+  dirigidoA          String              @map("dirigido_a")
+  precioBase         Decimal             @db.Decimal(10, 2) @map("precio_base")
+  recargoUrgenciaPct Decimal             @default(0) @db.Decimal(5, 2) @map("recargo_urgencia_pct")
+  descargas          DescargaContenido[]
+
+  @@map("CATALOGO_SERVICIOS")
+}
+
+model DescargaContenido {
+  idDescarga         String            @id @default(uuid()) @map("id_descarga")
+  idBuyer            String            @map("id_buyer")
+  buyer              Buyer             @relation(fields: [idBuyer], references: [id], onDelete: Cascade)
+  servicioIdAsociado String            @map("servicioId_asociado")
+  servicio           CatalogoServicios @relation(fields: [servicioIdAsociado], references: [servicioId], onDelete: Cascade)
+  fechaDescarga      DateTime          @default(now()) @map("fecha_descarga")
+
+  @@map("DESCARGA_CONTENIDO")
+}
+
+model InteraccionRedSocial {
+  idInteraccion   String   @id @default(uuid()) @map("id_interaccion")
+  idBuyer         String   @map("id_buyer")
+  buyer           Buyer    @relation(fields: [idBuyer], references: [id], onDelete: Cascade)
+  redSocial       String   @map("red_social")
+  tipoInteraccion String   @map("tipo_interaccion")
+  temaDetectado   String?  @map("tema_detectado")
+  fecha           DateTime @default(now()) @map("fecha")
+
+  @@map("INTERACCION_RED_SOCIAL")
 }
 
 model Formulario {

@@ -26,7 +26,10 @@ async function main() {
   await prisma.lead.deleteMany({});
   await prisma.formulario.deleteMany({});
   await prisma.interaccion.deleteMany({});
+  await prisma.descargaContenido.deleteMany({});
+  await prisma.interaccionRedSocial.deleteMany({});
   await prisma.buyer.deleteMany({});
+  await prisma.catalogoServicios.deleteMany({});
   await prisma.reglaComercial.deleteMany({});
   await prisma.servicio.deleteMany({});
   await prisma.contenido.deleteMany({});
@@ -363,6 +366,53 @@ async function main() {
   });
   console.log('✓ 4 Servicios y 4 Reglas Comerciales configurados');
 
+  // 7.1 CATALOGO_SERVICIOS (Oficial del Diagrama E-R)
+  console.log('7.1 Registrando CATALOGO_SERVICIOS (Paquetes y Recargos de Urgencia)...');
+  const catTesisIntegral = await prisma.catalogoServicios.create({
+    data: {
+      servicioId: 'srv-cat-01',
+      nombrePaquete: 'Paquete Asesoría Integral de Tesis de Grado',
+      incluye: 'Elaboración y acompañamiento integral de los capítulos I, II, III y IV, asesoría metodológica rigurosa, revisión antiplagio Turnitin y simulacros de sustentación.',
+      dirigidoA: 'Estudiantes de 10mo ciclo, egresados y bachilleres',
+      precioBase: 2200.0,
+      recargoUrgenciaPct: 20.0,
+    },
+  });
+
+  const catPlanTesis = await prisma.catalogoServicios.create({
+    data: {
+      servicioId: 'srv-cat-02',
+      nombrePaquete: 'Paquete Plan de Tesis / Proyecto de Investigación',
+      incluye: 'Formulación del problema, justificación, estado del arte, matriz de consistencia e instrumentos validados por juicio de expertos.',
+      dirigidoA: 'Estudiantes de 8vo, 9no y 10mo ciclo',
+      precioBase: 1200.0,
+      recargoUrgenciaPct: 15.0,
+    },
+  });
+
+  const catEstadistica = await prisma.catalogoServicios.create({
+    data: {
+      servicioId: 'srv-cat-03',
+      nombrePaquete: 'Paquete Tratamiento y Análisis Estadístico Especializado',
+      incluye: 'Pruebas de normalidad, contrastación de hipótesis paramétricas y no paramétricas (SPSS, R, Python) y tablas en formato APA 7ma.',
+      dirigidoA: 'Tesistas con trabajo de campo o datos recolectados',
+      precioBase: 850.0,
+      recargoUrgenciaPct: 25.0,
+    },
+  });
+
+  const catArticulo = await prisma.catalogoServicios.create({
+    data: {
+      servicioId: 'srv-cat-04',
+      nombrePaquete: 'Paquete Redacción y Publicación en Revista Scopus/WoS',
+      incluye: 'Estructuración bajo estándar IMRyD, selección de revista de impacto Q1-Q4 y absolución de observaciones del comité editorial.',
+      dirigidoA: 'Docentes, investigadores y maestrandos',
+      precioBase: 1800.0,
+      recargoUrgenciaPct: 10.0,
+    },
+  });
+  console.log('✓ CATALOGO_SERVICIOS registrado con éxito');
+
   // 8. ASESORES ACADÉMICOS
   console.log('8. Registrando asesores académicos...');
   const asesorSistemas = await prisma.asesor.create({
@@ -448,16 +498,49 @@ REGLAS ESTRICTAS:
   // ===========================================================================
   console.log('10. Generando cohorte sintética completa bajo las reglas del funnel IMPULSE...');
 
+  // Helper para asegurar todos los campos del Diagrama E-R oficial (BUYER)
+  const makeBuyerData = (data: any) => {
+    const nombre = data.nombre || `${data.nombres || ''} ${data.apellidos || ''}`.trim();
+    return {
+      ...data,
+      tipoPerfil: data.tipoPerfil || 'ESTUDIANTE',
+      nombre,
+      correo: data.correo || data.email,
+      departamento: data.departamento || 'La Libertad',
+      distrito: data.distrito || 'Trujillo',
+      tipoUniversidad: data.tipoUniversidad || 'PUBLICA',
+      sede: data.sede || 'Sede Central',
+      universidadNombre: data.universidadNombre || 'Universidad Nacional de Trujillo',
+      facultad: data.facultad || 'Facultad de Ingeniería',
+      carreraNombre: data.carreraNombre || 'Ingeniería de Sistemas',
+      edad: data.edad || (21 + Math.floor(Math.random() * 5)),
+      canalCaptacion: data.canalCaptacion || (data.canalId === canalTiktok.id ? 'TIKTOK' : data.canalId === canalGoogle.id ? 'GOOGLE' : 'META_ADS'),
+      leadScore: data.leadScore ?? data.score ?? 75,
+    };
+  };
+
   // ---------------------------------------------------------------------------
   // [DEMO LEAD 1 - CANDIDATO PRINCIPAL PARA DEMOSTRACIÓN EN VIVO]
   // Estado: LEAD | Score: 94 | Sin pago | Sin customer | Perfil Completo
   // ---------------------------------------------------------------------------
   const demoAna = await prisma.buyer.create({
-    data: {
+    data: makeBuyerData({
+      tipoPerfil: 'ESTUDIANTE',
+      nombre: 'Ana Lucía Pérez Mendoza',
       nombres: 'Ana Lucía',
       apellidos: 'Pérez Mendoza',
       whatsapp: '51949123456',
       email: 'ana.perez.unt@gmail.com',
+      correo: 'ana.perez.unt@gmail.com',
+      departamento: 'La Libertad',
+      distrito: 'Trujillo',
+      tipoUniversidad: 'PUBLICA',
+      sede: 'Sede Central Trujillo',
+      universidadNombre: 'Universidad Nacional de Trujillo',
+      facultad: 'Facultad de Ingeniería',
+      carreraNombre: 'Ingeniería de Sistemas',
+      edad: 23,
+      canalCaptacion: 'META_ADS',
       universidadId: unt.id,
       carreraId: carSistemasUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -475,7 +558,57 @@ REGLAS ESTRICTAS:
       consentimientoWhatsapp: true,
       fechaRegistro: new Date('2026-09-15T09:30:00Z'),
       fechaConversionLead: new Date('2026-09-15T09:35:00Z'),
+    }),
+  });
+
+  // Registros de la Fase BUYER para Ana: Descarga de contenido e Interacción social
+  await prisma.descargaContenido.create({
+    data: {
+      idBuyer: demoAna.id,
+      servicioIdAsociado: catTesisIntegral.servicioId,
+      fechaDescarga: new Date('2026-09-15T09:32:00Z'),
     },
+  });
+
+  await prisma.interaccionRedSocial.create({
+    data: {
+      idBuyer: demoAna.id,
+      redSocial: 'META_ADS',
+      tipoInteraccion: 'CLIC_ANUNCIO',
+      temaDetectado: 'Asesoría Integral de Tesis de Grado',
+      fecha: new Date('2026-09-15T09:25:00Z'),
+    },
+  });
+
+  // [DEMO FINANCIAMIENTO - PADRE DE FAMILIA]
+  // Auto-relación: Roberto Pérez (Padre) financia a Ana Lucía Pérez (Estudiante)
+  const demoPadreRoberto = await prisma.buyer.create({
+    data: makeBuyerData({
+      tipoPerfil: 'PADRE_FAMILIA',
+      nombre: 'Roberto Carlos Pérez Vargas',
+      nombres: 'Roberto Carlos',
+      apellidos: 'Pérez Vargas',
+      whatsapp: '51948776655',
+      email: 'roberto.perez@financiamiento.pe',
+      correo: 'roberto.perez@financiamiento.pe',
+      departamento: 'La Libertad',
+      distrito: 'Trujillo',
+      tipoUniversidad: 'PUBLICA',
+      sede: 'Sede Central Trujillo',
+      universidadNombre: 'Universidad Nacional de Trujillo',
+      facultad: 'Facultad de Ingeniería',
+      carreraNombre: 'Ingeniería de Sistemas',
+      ciclo: '10mo ciclo',
+      edad: 52,
+      financiaAIdBuyer: demoAna.id,
+      canalCaptacion: 'RECOMENDACION',
+      leadScore: 88,
+      estadoFunnel: 'BUYER',
+      situacionLaboral: 'TRABAJA_TIEMPO_COMPLETO',
+      presupuestoAprox: 2500.0,
+      consentimientoWhatsapp: true,
+      fechaRegistro: new Date('2026-09-16T10:00:00Z'),
+    }),
   });
 
   const leadAna = await prisma.lead.create({
@@ -562,11 +695,23 @@ REGLAS ESTRICTAS:
   // Estado: LEAD | Score: 88 | Negociación en curso (Manejo de Objeciones)
   // ---------------------------------------------------------------------------
   const demoCarlos = await prisma.buyer.create({
-    data: {
+    data: makeBuyerData({
+      tipoPerfil: 'EGRESADO',
+      nombre: 'Carlos Alberto Ruiz Salinas',
       nombres: 'Carlos Alberto',
       apellidos: 'Ruiz Salinas',
       whatsapp: '51948765432',
       email: 'cruiz.ind@ucv.edu.pe',
+      correo: 'cruiz.ind@ucv.edu.pe',
+      departamento: 'La Libertad',
+      distrito: 'Víctor Larco Herrera',
+      tipoUniversidad: 'PRIVADA',
+      sede: 'Filial Trujillo',
+      universidadNombre: 'Universidad César Vallejo',
+      facultad: 'Facultad de Ingeniería',
+      carreraNombre: 'Ingeniería Industrial',
+      edad: 25,
+      canalCaptacion: 'META_ADS',
       universidadId: ucv.id,
       carreraId: carIndustrialUCV.id,
       ubicacionId: ubiVictorLarco.id,
@@ -584,6 +729,24 @@ REGLAS ESTRICTAS:
       consentimientoWhatsapp: true,
       fechaRegistro: new Date('2026-09-14T11:00:00Z'),
       fechaConversionLead: new Date('2026-09-14T11:05:00Z'),
+    }),
+  });
+
+  await prisma.descargaContenido.create({
+    data: {
+      idBuyer: demoCarlos.id,
+      servicioIdAsociado: catEstadistica.servicioId,
+      fechaDescarga: new Date('2026-09-14T11:02:00Z'),
+    },
+  });
+
+  await prisma.interaccionRedSocial.create({
+    data: {
+      idBuyer: demoCarlos.id,
+      redSocial: 'TIKTOK',
+      tipoInteraccion: 'COMENTARIO',
+      temaDetectado: 'Análisis de datos en SPSS para Tesis de Ingeniería',
+      fecha: new Date('2026-09-14T10:55:00Z'),
     },
   });
 
@@ -703,11 +866,23 @@ REGLAS ESTRICTAS:
   // Estado: LEAD | Score: 82 | Etapa: CLOSING / COTIZACIÓN ACTIVA
   // ---------------------------------------------------------------------------
   const demoValeria = await prisma.buyer.create({
-    data: {
+    data: makeBuyerData({
+      tipoPerfil: 'ESTUDIANTE',
+      nombre: 'Valeria Sofía Morales Castro',
       nombres: 'Valeria Sofía',
       apellidos: 'Morales Castro',
       whatsapp: '51947112233',
       email: 'vmorales@upao.edu.pe',
+      correo: 'vmorales@upao.edu.pe',
+      departamento: 'La Libertad',
+      distrito: 'Trujillo',
+      tipoUniversidad: 'PRIVADA',
+      sede: 'Campus Central UPAO',
+      universidadNombre: 'Universidad Privada Antenor Orrego',
+      facultad: 'Facultad de Derecho y Ciencias Políticas',
+      carreraNombre: 'Derecho y Ciencias Políticas',
+      edad: 24,
+      canalCaptacion: 'GOOGLE',
       universidadId: upao.id,
       carreraId: carDerechoUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -725,6 +900,14 @@ REGLAS ESTRICTAS:
       consentimientoWhatsapp: true,
       fechaRegistro: new Date('2026-09-13T16:20:00Z'),
       fechaConversionLead: new Date('2026-09-13T16:25:00Z'),
+    }),
+  });
+
+  await prisma.descargaContenido.create({
+    data: {
+      idBuyer: demoValeria.id,
+      servicioIdAsociado: catTesisIntegral.servicioId,
+      fechaDescarga: new Date('2026-09-13T16:22:00Z'),
     },
   });
 
@@ -977,7 +1160,7 @@ REGLAS ESTRICTAS:
 
   for (const item of cohortLeadsData) {
     const buyerCreated = await prisma.buyer.create({
-      data: {
+      data: makeBuyerData({
         nombres: item.nombres,
         apellidos: item.apellidos,
         whatsapp: item.whatsapp,
@@ -999,7 +1182,7 @@ REGLAS ESTRICTAS:
         consentimientoWhatsapp: true,
         fechaRegistro: new Date('2026-09-12T10:00:00Z'),
         fechaConversionLead: new Date('2026-09-12T10:05:00Z'),
-      },
+      }),
     });
 
     const leadCreated = await prisma.lead.create({
@@ -1213,7 +1396,7 @@ REGLAS ESTRICTAS:
 
   for (const item of cohortBuyersData) {
     const b = await prisma.buyer.create({
-      data: {
+      data: makeBuyerData({
         nombres: item.nombres,
         apellidos: item.apellidos,
         whatsapp: item.whatsapp,
@@ -1232,7 +1415,7 @@ REGLAS ESTRICTAS:
         estadoFunnel: 'BUYER', // Respeto estricto de la regla: Score < 70 -> BUYER
         consentimientoWhatsapp: true,
         fechaRegistro: new Date('2026-09-10T14:00:00Z'),
-      },
+      }),
     });
 
     await prisma.formulario.create({
@@ -1349,7 +1532,7 @@ REGLAS ESTRICTAS:
 
   for (const item of cohortPayersData) {
     const b = await prisma.buyer.create({
-      data: {
+      data: makeBuyerData({
         nombres: item.nombres,
         apellidos: item.apellidos,
         whatsapp: item.whatsapp,
@@ -1368,7 +1551,7 @@ REGLAS ESTRICTAS:
         consentimientoWhatsapp: true,
         fechaRegistro: new Date('2026-09-08T09:00:00Z'),
         fechaConversionLead: new Date('2026-09-08T09:05:00Z'),
-      },
+      }),
     });
 
     const l = await prisma.lead.create({
@@ -1545,7 +1728,7 @@ REGLAS ESTRICTAS:
 
   for (const item of cohortCustomersData) {
     const b = await prisma.buyer.create({
-      data: {
+      data: makeBuyerData({
         nombres: item.nombres,
         apellidos: item.apellidos,
         whatsapp: item.whatsapp,
@@ -1564,7 +1747,7 @@ REGLAS ESTRICTAS:
         consentimientoWhatsapp: true,
         fechaRegistro: new Date('2026-09-01T08:00:00Z'),
         fechaConversionLead: new Date('2026-09-01T08:05:00Z'),
-      },
+      }),
     });
 
     const l = await prisma.lead.create({
