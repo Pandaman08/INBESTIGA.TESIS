@@ -19,6 +19,7 @@ import { AdvisorsModule } from './modules/advisors/advisors.module';
 import { EtlModule } from './modules/etl/etl.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { LeadsModule } from './modules/leads/leads.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     EtlModule,
     DashboardModule,
     AlertsModule,
+    LeadsModule,
   ],
   providers: [
     // Orden: primero el límite de peticiones, luego autenticación/roles.

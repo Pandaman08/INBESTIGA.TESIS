@@ -26,12 +26,25 @@ async function main() {
   await prisma.payer.deleteMany({});
   await prisma.pago.deleteMany({});
   await prisma.cotizacion.deleteMany({});
-  await prisma.propuesta.deleteMany({});
+  // LEADS (P02): tablas que referencian PROPUESTA, OPORTUNIDAD, LEAD o ASESOR
+  await prisma.respuestaPropuesta.deleteMany({});
+  await prisma.propuestaEntregable.deleteMany({});
+  await prisma.propuestaAjuste.deleteMany({});
+  await prisma.transferenciaPayer.deleteMany({});
+  await prisma.conversionPayerRef.deleteMany({});
+  await prisma.citaHistorial.deleteMany({});
+  await prisma.citaVirtual.deleteMany({});
+  await prisma.escalamiento.deleteMany({});
+  await prisma.responsablePago.deleteMany({});
   await prisma.objecion.deleteMany({});
-  await prisma.diagnostico.deleteMany({});
   await prisma.seguimiento.deleteMany({});
+  await prisma.propuesta.deleteMany({});
+  await prisma.diagnostico.deleteMany({});
   await prisma.mensaje.deleteMany({});
   await prisma.conversacion.deleteMany({});
+  await prisma.oportunidadHistorial.deleteMany({});
+  await prisma.oportunidadComercial.deleteMany({});
+  await prisma.entregable.deleteMany({});
   await prisma.perfilNegociacion.deleteMany({});
   await prisma.lead.deleteMany({});
   await prisma.formulario.deleteMany({});

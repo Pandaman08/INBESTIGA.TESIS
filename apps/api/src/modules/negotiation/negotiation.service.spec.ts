@@ -31,6 +31,8 @@ function crearPrisma() {
     pago: { count: jest.fn().mockResolvedValue(0), deleteMany: jest.fn() },
     cotizacion: { count: jest.fn().mockResolvedValue(0), deleteMany: jest.fn() },
     customer: { count: jest.fn().mockResolvedValue(0), deleteMany: jest.fn() },
+    transferenciaPayer: { count: jest.fn().mockResolvedValue(0) },
+    oportunidadComercial: { findUnique: jest.fn().mockResolvedValue({ id: 'op-1', fechaCierre: null }) },
     $transaction: jest.fn().mockResolvedValue([]),
   };
 }
@@ -42,12 +44,16 @@ describe('NegotiationService', () => {
     generarMensajeInicial: jest.fn().mockResolvedValue('Hola'),
   };
   const whatsapp = { enviarMensaje: jest.fn().mockResolvedValue({ estado: 'SENT', exito: true }) };
+  const oportunidades = {
+    abrirParaLead: jest.fn().mockResolvedValue({ oportunidad: { id: 'op-1' }, creada: false }),
+    transicionar: jest.fn().mockResolvedValue({}),
+  };
   let svc: NegotiationService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma = crearPrisma();
-    svc = new NegotiationService(prisma as any, ai as any, whatsapp as any);
+    svc = new NegotiationService(prisma as any, ai as any, whatsapp as any, oportunidades as any);
   });
 
   describe('remitentes de WhatsApp', () => {
@@ -88,6 +94,17 @@ describe('NegotiationService', () => {
       prisma.buyer.findMany.mockResolvedValue([buyerFicticio]);
       await svc.procesarMensajeEstudiante('51987654321', 'Hola');
       expect(whatsapp.enviarMensaje).toHaveBeenCalledWith(expect.objectContaining({ motivoLocal: 'BUYER_FICTICIO_NO_AUTORIZADO' }));
+    });
+  });
+
+  describe('vínculo con la oportunidad de LEADS', () => {
+    it('una conversación nueva de un LEAD queda asociada a su oportunidad abierta', async () => {
+      prisma.buyer.findMany.mockResolvedValue([buyerReal]);
+      prisma.conversacion.findFirst.mockResolvedValue(null);
+      prisma.conversacion.create.mockResolvedValue({ id: 'conv-new' });
+      await svc.procesarMensajeEstudiante('51987654321', 'Hola');
+      expect(oportunidades.abrirParaLead).toHaveBeenCalledWith('lead-1', { tipo: 'SISTEMA' });
+      expect(prisma.conversacion.create).toHaveBeenCalledWith({ data: expect.objectContaining({ oportunidadId: 'op-1', leadId: 'lead-1' }) });
     });
   });
 
@@ -139,6 +156,18 @@ describe('NegotiationService', () => {
       expect(r.exito).toBe(true);
       expect(prisma.$transaction).toHaveBeenCalledWith(['op-msg', 'op-obj', 'op-diag', 'op-seg', 'op-prop', 'op-update']);
       ningunBorradoDePayers();
+    });
+
+    it('el reset no borra la oportunidad: la cierra como DESCARTADA con motivo', async () => {
+      prisma.conversacion.findUnique.mockResolvedValue({ id: 'conv-1', buyer: buyerFicticio, oportunidadId: 'op-1', mensajes: [] });
+      await svc.limpiarConversacion('conv-1');
+      expect(oportunidades.transicionar).toHaveBeenCalledWith('op-1', 'DESCARTADA', { tipo: 'SISTEMA' }, expect.stringContaining('REINICIO_SANDBOX'));
+    });
+
+    it('estudiante ficticio con acuerdo transferido a PAYERS → 409', async () => {
+      prisma.conversacion.findUnique.mockResolvedValue({ id: 'conv-1', buyer: buyerFicticio });
+      prisma.transferenciaPayer.count.mockResolvedValue(1);
+      await expect(svc.limpiarConversacion('conv-1')).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

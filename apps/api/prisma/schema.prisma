@@ -11,13 +11,13 @@ generator client {
 // Seguridad y Usuarios
 // -----------------------------------------------------------------------------
 model Usuario {
-  id            String         @id @default(uuid())
-  username      String         @unique
-  email         String         @unique
-  passwordHash  String
-  rol           String         @default("ADMIN") // ADMIN, ASESOR
-  activo        Boolean        @default(true)
-  fechaCreacion DateTime       @default(now())
+  id             String         @id @default(uuid())
+  username       String         @unique
+  email          String         @unique
+  passwordHash   String
+  rol            String         @default("ADMIN") // ADMIN, ASESOR
+  activo         Boolean        @default(true)
+  fechaCreacion  DateTime       @default(now())
   notificaciones Notificacion[]
 
   @@map("USUARIO")
@@ -27,33 +27,33 @@ model Usuario {
 // Catálogos Académicos y Geográficos
 // -----------------------------------------------------------------------------
 model Universidad {
-  id        String    @id @default(uuid())
-  nombre    String
-  siglas    String    @unique
-  ciudad    String
-  tipo      String    // PUBLICA, PRIVADA
-  activo    Boolean   @default(true)
-  carreras  Carrera[]
-  buyers    Buyer[]
+  id       String    @id @default(uuid())
+  nombre   String
+  siglas   String    @unique
+  ciudad   String
+  tipo     String // PUBLICA, PRIVADA
+  activo   Boolean   @default(true)
+  carreras Carrera[]
+  buyers   Buyer[]
 
   @@map("UNIVERSIDAD")
 }
 
 model Carrera {
-  id               String       @id @default(uuid())
+  id               String      @id @default(uuid())
   universidadId    String
-  universidad      Universidad  @relation(fields: [universidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  universidad      Universidad @relation(fields: [universidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   nombre           String
   facultad         String
-  areaConocimiento String       // INGENIERIA, CIENCIAS_SALUD, SOCIALES, NEGOCIOS, DERECHO
-  activo           Boolean      @default(true)
+  areaConocimiento String // INGENIERIA, CIENCIAS_SALUD, SOCIALES, NEGOCIOS, DERECHO
+  activo           Boolean     @default(true)
   buyers           Buyer[]
 
   @@map("CARRERA")
 }
 
 model Ubicacion {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   departamento String
   provincia    String
   distrito     String
@@ -93,14 +93,14 @@ model Campana {
 }
 
 model Contenido {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   campanaId  String
-  campana    Campana  @relation(fields: [campanaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  campana    Campana @relation(fields: [campanaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   titulo     String
-  tipo       String   // VIDEO, POST, LANDING, GUIA_PDF
+  tipo       String // VIDEO, POST, LANDING, GUIA_PDF
   url        String?
-  leadMagnet Boolean  @default(false)
-  activo     Boolean  @default(true)
+  leadMagnet Boolean @default(false)
+  activo     Boolean @default(true)
 
   @@map("CONTENIDO")
 }
@@ -109,42 +109,42 @@ model Contenido {
 // Funnel IMPULSE: BUYER y LEAD
 // -----------------------------------------------------------------------------
 model Buyer {
-  id                    String        @id @default(uuid())
-  nombres               String
-  apellidos             String
-  whatsapp              String
-  email                 String
-  universidadId         String?
-  universidad           Universidad?  @relation(fields: [universidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  carreraId             String?
-  carrera               Carrera?      @relation(fields: [carreraId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  ubicacionId           String?
-  ubicacion             Ubicacion?    @relation(fields: [ubicacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  canalId               String?
-  canal                 Canal?        @relation(fields: [canalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  campanaId             String?
-  campana               Campana?      @relation(fields: [campanaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  ciclo                 String?       // 8vo, 9no, 10mo, EGRESADO, BACHILLER, MAESTRIA
-  tipoInvestigacion     String?       // TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO, TESINA
-  situacionLaboral      String?       // TRABAJA_TIEMPO_COMPLETO, MEDIO_TIEMPO, SOLO_ESTUDIA
-  presupuestoAprox      Decimal?      @db.Decimal(10, 2)
-  dolorPrincipal        String?       // METODOLOGIA, ESTADISTICA, ASESOR_NO_RESPONDE, FALTA_TIEMPO
-  softwareRequerido     String?       // SPSS, R, PYTHON, ATLAS_TI, STATA
-  plazoDefinidoDias     Int?          // Plazo en días deseado por el estudiante
-  leadScore             Int           @default(0)
-  estadoFunnel          String        @default("BUYER") // BUYER, LEAD, PAYER, CUSTOMER
-  consentimientoWhatsapp Boolean       @default(true)
-  fechaRegistro         DateTime      @default(now())
-  fechaConversionLead   DateTime?
+  id                     String       @id @default(uuid())
+  nombres                String
+  apellidos              String
+  whatsapp               String
+  email                  String
+  universidadId          String?
+  universidad            Universidad? @relation(fields: [universidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  carreraId              String?
+  carrera                Carrera?     @relation(fields: [carreraId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ubicacionId            String?
+  ubicacion              Ubicacion?   @relation(fields: [ubicacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canalId                String?
+  canal                  Canal?       @relation(fields: [canalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  campanaId              String?
+  campana                Campana?     @relation(fields: [campanaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ciclo                  String? // 8vo, 9no, 10mo, EGRESADO, BACHILLER, MAESTRIA
+  tipoInvestigacion      String? // TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO, TESINA
+  situacionLaboral       String? // TRABAJA_TIEMPO_COMPLETO, MEDIO_TIEMPO, SOLO_ESTUDIA
+  presupuestoAprox       Decimal?     @db.Decimal(10, 2)
+  dolorPrincipal         String? // METODOLOGIA, ESTADISTICA, ASESOR_NO_RESPONDE, FALTA_TIEMPO
+  softwareRequerido      String? // SPSS, R, PYTHON, ATLAS_TI, STATA
+  plazoDefinidoDias      Int? // Plazo en días deseado por el estudiante
+  leadScore              Int          @default(0)
+  estadoFunnel           String       @default("BUYER") // BUYER, LEAD, PAYER, CUSTOMER
+  consentimientoWhatsapp Boolean      @default(true)
+  fechaRegistro          DateTime     @default(now())
+  fechaConversionLead    DateTime?
 
-  formularios           Formulario[]
-  interacciones         Interaccion[]
-  lead                  Lead?
-  conversaciones        Conversacion[]
-  perfilNegociacion     PerfilNegociacion?
-  pagos                 Pago[]
-  payer                 Payer?
-  customer              Customer?
+  formularios       Formulario[]
+  interacciones     Interaccion[]
+  lead              Lead?
+  conversaciones    Conversacion[]
+  perfilNegociacion PerfilNegociacion?
+  pagos             Pago[]
+  payer             Payer?
+  customer          Customer?
 
   @@map("BUYER")
 }
@@ -165,7 +165,7 @@ model Interaccion {
   id        String   @id @default(uuid())
   buyerId   String
   buyer     Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  tipo      String   // VISITA, DESCARGA_LEAD_MAGNET, CLIC_ANUNCIO, ENVIO_FORMULARIO, MENSAJE_WHATSAPP
+  tipo      String // VISITA, DESCARGA_LEAD_MAGNET, CLIC_ANUNCIO, ENVIO_FORMULARIO, MENSAJE_WHATSAPP
   detalle   String?  @db.NVarChar(Max)
   fechaHora DateTime @default(now())
 
@@ -173,24 +173,27 @@ model Interaccion {
 }
 
 model Lead {
-  id                  String         @id @default(uuid())
-  buyerId             String         @unique
-  buyer               Buyer          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  scoreCalificado     Int
-  prioridad           String         @default("MEDIA") // ALTA, MEDIA, BAJA (Sección 4.3 del informe)
-  fechaCalificacion   DateTime       @default(now())
-  umbralSuperado      Boolean        @default(true)
-  criterioCalificacion String?       @db.NVarChar(Max) // Desglose JSON del score
+  id                   String   @id @default(uuid())
+  buyerId              String   @unique
+  buyer                Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  scoreCalificado      Int
+  prioridad            String   @default("MEDIA") // ALTA, MEDIA, BAJA (Sección 4.3 del informe)
+  fechaCalificacion    DateTime @default(now())
+  umbralSuperado       Boolean  @default(true)
+  criterioCalificacion String?  @db.NVarChar(Max) // Desglose JSON del score
 
-  conversaciones      Conversacion[]
-  diagnosticos        Diagnostico[]
-  propuestas          Propuesta[]
-  objeciones          Objecion[]
-  seguimientos        Seguimiento[]
-  cotizaciones        Cotizacion[]
-  pagos               Pago[]
-  payer               Payer?
-  customer            Customer?
+  conversaciones   Conversacion[]
+  diagnosticos     Diagnostico[]
+  propuestas       Propuesta[]
+  objeciones       Objecion[]
+  seguimientos     Seguimiento[]
+  cotizaciones     Cotizacion[]
+  pagos            Pago[]
+  payer            Payer?
+  customer         Customer?
+  oportunidades    OportunidadComercial[]
+  responsablesPago ResponsablePago[]
+  escalamientos    Escalamiento[]
 
   @@map("LEAD")
 }
@@ -199,18 +202,18 @@ model Lead {
 // Catálogo de Servicios y Reglas Comerciales
 // -----------------------------------------------------------------------------
 model Servicio {
-  id                String            @id @default(uuid())
+  id                String           @id @default(uuid())
   nombre            String
-  codigo            String            @unique // TESIS_INTEGRAL, PLAN_TESIS, ANALISIS_ESTADISTICO, ARTICULO
-  descripcion       String            @db.NVarChar(Max)
-  tipoInvestigacion String            // TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO
-  precioBase        Decimal           @db.Decimal(10, 2)
-  precioMinimo      Decimal           @db.Decimal(10, 2)
-  precioMaximo      Decimal           @db.Decimal(10, 2)
-  plazoSemanasMin   Int               @default(4)
-  plazoSemanasMax   Int               @default(16)
-  maxCuotas         Int               @default(4)
-  activo            Boolean           @default(true)
+  codigo            String           @unique // TESIS_INTEGRAL, PLAN_TESIS, ANALISIS_ESTADISTICO, ARTICULO
+  descripcion       String           @db.NVarChar(Max)
+  tipoInvestigacion String // TESIS, PLAN_DE_TESIS, ARTICULO_CIENTIFICO
+  precioBase        Decimal          @db.Decimal(10, 2)
+  precioMinimo      Decimal          @db.Decimal(10, 2)
+  precioMaximo      Decimal          @db.Decimal(10, 2)
+  plazoSemanasMin   Int              @default(4)
+  plazoSemanasMax   Int              @default(16)
+  maxCuotas         Int              @default(4)
+  activo            Boolean          @default(true)
   reglasComerciales ReglaComercial[]
   propuestas        Propuesta[]
   cotizaciones      Cotizacion[]
@@ -220,17 +223,18 @@ model Servicio {
 }
 
 model ReglaComercial {
-  id                    String    @id @default(uuid())
+  id                    String            @id @default(uuid())
   servicioId            String
-  servicio              Servicio  @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  servicio              Servicio          @relation(fields: [servicioId], references: [id], onDelete: Cascade)
   tipoInvestigacion     String?
-  descuentoMaximoPct    Decimal   @default(15.00) @db.Decimal(5, 2) // Ej. 15.00%
-  descuentoPagoUnicoPct Decimal   @default(10.00) @db.Decimal(5, 2) // Ej. 10.00%
-  cuotaMinima           Decimal   @default(200.00) @db.Decimal(10, 2)
-  plazoMinimoDias       Int       @default(15)
-  plazoMaximoDias       Int       @default(120)
-  condicionesEspeciales String?   @db.NVarChar(Max)
-  activo                Boolean   @default(true)
+  descuentoMaximoPct    Decimal           @default(15.00) @db.Decimal(5, 2) // Ej. 15.00%
+  descuentoPagoUnicoPct Decimal           @default(10.00) @db.Decimal(5, 2) // Ej. 10.00%
+  cuotaMinima           Decimal           @default(200.00) @db.Decimal(10, 2)
+  plazoMinimoDias       Int               @default(15)
+  plazoMaximoDias       Int               @default(120)
+  condicionesEspeciales String?           @db.NVarChar(Max)
+  activo                Boolean           @default(true)
+  ajustes               PropuestaAjuste[]
 
   @@map("REGLA_COMERCIAL")
 }
@@ -239,35 +243,44 @@ model ReglaComercial {
 // Negociación, Conversaciones y Agente IA
 // -----------------------------------------------------------------------------
 model PerfilNegociacion {
-  id                      String   @id @default(uuid())
-  buyerId                 String   @unique
-  buyer                   Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  presupuestoEstimado     Decimal? @db.Decimal(10, 2)
-  urgenciaNivel           String?  // ALTA, MEDIA, BAJA
-  objecionPredominante    String?  // PRECIO, TIEMPO, CONFIANZA
-  scoreSensibilidadPrecio Int?     @default(50) // 0-100
-  notas                   String?  @db.NVarChar(Max)
+  id                      String    @id @default(uuid())
+  buyerId                 String    @unique
+  buyer                   Buyer     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  presupuestoEstimado     Decimal?  @db.Decimal(10, 2)
+  urgenciaNivel           String? // ALTA, MEDIA, BAJA
+  objecionPredominante    String? // PRECIO, TIEMPO, CONFIANZA
+  scoreSensibilidadPrecio Int?      @default(50) // 0-100
+  notas                   String?   @db.NVarChar(Max)
+  // LEADS (informe Tabla 5): preferencias y disponibilidad
+  disponibilidad          String?
+  horarioPreferido        String?
+  fechaLimite             DateTime?
+  nivelConfianza          Int? // 1-5 (CK_PERFILNEG_CONFIANZA)
 
   @@map("PERFIL_NEGOCIACION")
 }
 
 model Conversacion {
-  id                  String        @id @default(uuid())
-  buyerId             String
-  buyer               Buyer         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  leadId              String?
-  lead                Lead?         @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  canal               String        @default("WHATSAPP")
-  estadoEtapa         String        @default("DISCOVERY") // DISCOVERY, DIAGNOSTIC, PROPOSAL, OBJECTION_HANDLING, NEGOTIATION, CLOSING, PAYMENT, PAYMENT_PENDING, CONVERTED, HUMAN_ESCALATION, ABANDONED
-  fechaInicio         DateTime      @default(now())
-  fechaUltimaActividad DateTime     @default(now())
+  id                   String                @id @default(uuid())
+  buyerId              String
+  buyer                Buyer                 @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  leadId               String?
+  lead                 Lead?                 @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oportunidadId        String?
+  oportunidad          OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canal                String                @default("WHATSAPP")
+  estadoEtapa          String                @default("DISCOVERY") // DISCOVERY, DIAGNOSTIC, PROPOSAL, OBJECTION_HANDLING, NEGOTIATION, CLOSING, PAYMENT, PAYMENT_PENDING, CONVERTED, HUMAN_ESCALATION, ABANDONED
+  fechaInicio          DateTime              @default(now())
+  fechaUltimaActividad DateTime              @default(now())
 
-  mensajes            Mensaje[]
-  diagnosticos        Diagnostico[]
-  propuestas          Propuesta[]
-  objeciones          Objecion[]
-  seguimientos        Seguimiento[]
+  mensajes      Mensaje[]
+  diagnosticos  Diagnostico[]
+  propuestas    Propuesta[]
+  objeciones    Objecion[]
+  seguimientos  Seguimiento[]
+  escalamientos Escalamiento[]
 
+  @@index([oportunidadId])
   @@map("CONVERSACION")
 }
 
@@ -275,8 +288,8 @@ model Mensaje {
   id             String       @id @default(uuid())
   conversacionId String
   conversacion   Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  direccion      String       // INCOMING (Cliente->Bot), OUTGOING (Bot->Cliente)
-  remitente      String       // CLIENTE, AGENTE_IA, ASESOR_HUMANO
+  direccion      String // INCOMING (Cliente->Bot), OUTGOING (Bot->Cliente)
+  remitente      String // CLIENTE, AGENTE_IA, ASESOR_HUMANO
   contenido      String       @db.NVarChar(Max)
   tipoMensaje    String       @default("TEXT") // TEXT, PAYMENT_LINK, QUOTE, DOCUMENT
   fechaHora      DateTime     @default(now())
@@ -288,69 +301,121 @@ model Mensaje {
 }
 
 model Diagnostico {
-  id                    String       @id @default(uuid())
-  conversacionId        String
-  conversacion          Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  leadId                String?
-  lead                  Lead?        @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  temaInvestigacion     String?
-  avanceActualPct       Int          @default(0) // 0-100%
-  principalesDificultades String?    @db.NVarChar(Max)
-  resumenIA             String?      @db.NVarChar(Max)
-  fechaDiagnostico      DateTime     @default(now())
+  id                      String                @id @default(uuid())
+  conversacionId          String?
+  conversacion            Conversacion?         @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  leadId                  String?
+  lead                    Lead?                 @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  temaInvestigacion       String?
+  avanceActualPct         Int                   @default(0) // 0-100%
+  principalesDificultades String?               @db.NVarChar(Max)
+  resumenIA               String?               @db.NVarChar(Max)
+  fechaDiagnostico        DateTime              @default(now())
+  // LEADS (informe 4.6/4.12): solicitud y entrega del diagnóstico por oportunidad (K1)
+  oportunidadId           String?
+  oportunidad             OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asesorId                String? // NULL = atendido por el Agente IA
+  asesor                  Asesor?               @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  estado                  String? // SOLICITADO, ENTREGADO, ANULADO (CK_DIAG_ESTADO)
+  fechaSolicitud          DateTime?
+  fechaEntrega            DateTime?
+  tipoTesis               String?
+  limitaciones            String?               @db.NVarChar(Max)
+  tieneEmpresaAplicacion  Boolean?
+  empresaAplicacion       String?
+  requiereDerivacion      Boolean?
 
+  @@index([oportunidadId])
   @@map("DIAGNOSTICO")
 }
 
 model Propuesta {
-  id                   String        @id @default(uuid())
-  conversacionId       String
-  conversacion         Conversacion  @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(uuid())
+  conversacionId       String?
+  conversacion         Conversacion?         @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
   leadId               String?
-  lead                 Lead?         @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lead                 Lead?                 @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   servicioId           String
-  servicio             Servicio      @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  precioOriginal       Decimal       @db.Decimal(10, 2)
-  precioPropuesto      Decimal       @db.Decimal(10, 2)
-  descuentoAplicadoPct Decimal       @default(0) @db.Decimal(5, 2)
-  numeroCuotas         Int           @default(1)
-  montoPorCuota        Decimal       @db.Decimal(10, 2)
-  plazoDias            Int           @default(30)
-  justificacion        String?       @db.NVarChar(Max)
-  estado               String        @default("BORRADOR") // BORRADOR, ENVIADA, ACEPTADA, RECHAZADA
-  fechaCreacion        DateTime      @default(now())
+  servicio             Servicio              @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  precioOriginal       Decimal               @db.Decimal(10, 2)
+  precioPropuesto      Decimal               @db.Decimal(10, 2)
+  descuentoAplicadoPct Decimal               @default(0) @db.Decimal(5, 2)
+  numeroCuotas         Int                   @default(1)
+  montoPorCuota        Decimal               @db.Decimal(10, 2)
+  plazoDias            Int                   @default(30)
+  justificacion        String?               @db.NVarChar(Max)
+  estado               String                @default("BORRADOR") // BORRADOR, ENVIADA, ACEPTADA, RECHAZADA, REEMPLAZADA, VENCIDA
+  fechaCreacion        DateTime              @default(now())
   cotizaciones         Cotizacion[]
+  // LEADS (informe 4.4.2/4.12): propuesta versionada por oportunidad (K2, K3)
+  oportunidadId        String?
+  oportunidad          OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  version              Int? // UX_PROPUESTA_VERSION (oportunidadId, version)
+  fechaPresentacion    DateTime? // presentación de esta versión al estudiante
+  vigenciaHasta        DateTime?
+  generadaPor          String? // AGENTE_IA, ASESOR, ADMIN
+  asesorId             String?
+  asesor               Asesor?               @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ajustes              PropuestaAjuste[]
+  entregables          PropuestaEntregable[]
+  respuestas           RespuestaPropuesta[]
+  objeciones           Objecion[]
+  seguimientos         Seguimiento[]
+  transferencias       TransferenciaPayer[]
 
+  @@index([oportunidadId])
   @@map("PROPUESTA")
 }
 
 model Objecion {
-  id             String       @id @default(uuid())
-  conversacionId String
-  conversacion   Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  leadId         String?
-  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tipo           String       // PRECIO, TIEMPO, CONFIANZA, COMPARACION, METODO_PAGO, OTRO
-  descripcion    String       @db.NVarChar(Max)
-  respuestaAgente String?     @db.NVarChar(Max)
-  resuelta       Boolean      @default(false)
-  fechaRegistro  DateTime     @default(now())
+  id              String                @id @default(uuid())
+  conversacionId  String?
+  conversacion    Conversacion?         @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  leadId          String?
+  lead            Lead?                 @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tipo            String // PRECIO, TIEMPO, CONFIANZA, COMPARACION, METODO_PAGO, OTRO
+  descripcion     String                @db.NVarChar(Max)
+  respuestaAgente String?               @db.NVarChar(Max)
+  resuelta        Boolean               @default(false)
+  fechaRegistro   DateTime              @default(now())
+  // LEADS (informe 4.6/4.12): objeción sobre una propuesta de la oportunidad (K4)
+  oportunidadId   String?
+  oportunidad     OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  propuestaId     String?
+  propuesta       Propuesta?            @relation(fields: [propuestaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  grupo           String? // PRECIO, CONFIANZA_GARANTIAS, PLAZO, ALCANCE, OTRO
+  estado          String? // ABIERTA, ACLARADA, ESCALADA, CERRADA
+  vecesRepetida   Int?
+  escalada        Boolean?
+  fechaResolucion DateTime?
+  resultado       String?
 
+  @@index([oportunidadId])
   @@map("OBJECION")
 }
 
 model Seguimiento {
-  id             String       @id @default(uuid())
-  conversacionId String
-  conversacion   Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  leadId         String?
-  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tipo           String       // RECORDATORIO, CONSULTA_DUDA, OFERTA_LIMITADA
+  id              String                @id @default(uuid())
+  conversacionId  String?
+  conversacion    Conversacion?         @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  leadId          String?
+  lead            Lead?                 @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tipo            String // RECORDATORIO, CONSULTA_DUDA, OFERTA_LIMITADA
   fechaProgramada DateTime
-  fechaEjecutada DateTime?
-  estado         String       @default("PENDIENTE") // PENDIENTE, EJECUTADO, CANCELADO
-  resultado      String?
+  fechaEjecutada  DateTime?
+  estado          String                @default("PENDIENTE") // PENDIENTE, EJECUTADO, CANCELADO
+  resultado       String?
+  // LEADS (informe SEGUIMIENTO_LEAD): se reutiliza esta tabla en lugar de crear un homónimo
+  oportunidadId   String?
+  oportunidad     OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  propuestaId     String?
+  propuesta       Propuesta?            @relation(fields: [propuestaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asesorId        String?
+  asesor          Asesor?               @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canal           String? // WHATSAPP, CHAT_WEB_INTERNO, EMAIL, LLAMADA
+  siguienteAccion String?
 
+  @@index([oportunidadId])
   @@map("SEGUIMIENTO")
 }
 
@@ -358,67 +423,67 @@ model Seguimiento {
 // Cotizaciones y Pasarela de Pagos (LEAD -> PAYER)
 // -----------------------------------------------------------------------------
 model Cotizacion {
-  id               String      @id @default(uuid())
+  id               String     @id @default(uuid())
   leadId           String
-  lead             Lead        @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   propuestaId      String?
-  propuesta        Propuesta?  @relation(fields: [propuestaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  propuesta        Propuesta? @relation(fields: [propuestaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   servicioId       String
-  servicio         Servicio    @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  codigoCotizacion String      @unique // COT-2026-0001
-  subtotal         Decimal     @db.Decimal(10, 2)
-  descuento        Decimal     @default(0) @db.Decimal(10, 2)
-  total            Decimal     @db.Decimal(10, 2)
-  cuotas           Int         @default(1)
-  plazoEntregaDias Int         @default(30)
-  fechaEmision     DateTime    @default(now())
+  servicio         Servicio   @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  codigoCotizacion String     @unique // COT-2026-0001
+  subtotal         Decimal    @db.Decimal(10, 2)
+  descuento        Decimal    @default(0) @db.Decimal(10, 2)
+  total            Decimal    @db.Decimal(10, 2)
+  cuotas           Int        @default(1)
+  plazoEntregaDias Int        @default(30)
+  fechaEmision     DateTime   @default(now())
   fechaExpiracion  DateTime
-  estado           String      @default("ACTIVA") // ACTIVA, ACEPTADA, CANCELADA, EXPIRADA
+  estado           String     @default("ACTIVA") // ACTIVA, ACEPTADA, CANCELADA, EXPIRADA
 
-  pagos            Pago[]
-  customers        Customer[]
+  pagos     Pago[]
+  customers Customer[]
 
   @@map("COTIZACION")
 }
 
 model Pago {
-  id                   String      @id @default(uuid())
+  id                   String     @id @default(uuid())
   cotizacionId         String
-  cotizacion           Cotizacion  @relation(fields: [cotizacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotizacion           Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   buyerId              String
-  buyer                Buyer       @relation(fields: [buyerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  buyer                Buyer      @relation(fields: [buyerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   leadId               String?
-  lead                 Lead?       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  gatewayProveedor     String      // STRIPE, MERCADOPAGO, CULQI
-  gatewayTransactionId String?     @unique
-  monto                Decimal     @db.Decimal(10, 2)
-  moneda               String      @default("PEN")
-  metodoPago           String      @default("CARD") // CARD, YAPE, TRANSFER
-  estado               String      @default("PENDIENTE") // PENDIENTE, CONFIRMADO, FALLIDO, REEMBOLSADO
-  fechaCreacion        DateTime    @default(now())
+  lead                 Lead?      @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  gatewayProveedor     String // STRIPE, MERCADOPAGO, CULQI
+  gatewayTransactionId String?    @unique
+  monto                Decimal    @db.Decimal(10, 2)
+  moneda               String     @default("PEN")
+  metodoPago           String     @default("CARD") // CARD, YAPE, TRANSFER
+  estado               String     @default("PENDIENTE") // PENDIENTE, CONFIRMADO, FALLIDO, REEMBOLSADO
+  fechaCreacion        DateTime   @default(now())
   fechaConfirmacion    DateTime?
-  gatewayPayload       String?     @db.NVarChar(Max)
+  gatewayPayload       String?    @db.NVarChar(Max)
   comprobanteUrl       String?
 
-  payer                Payer[]
+  payer Payer[]
 
   @@map("PAGO")
 }
 
 model Payer {
-  id                  String    @id @default(uuid())
-  buyerId             String    @unique
-  buyer               Buyer     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  leadId              String?   @unique
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  primerPagoId        String
-  primerPago          Pago      @relation(fields: [primerPagoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  montoTotalPagado    Decimal   @default(0) @db.Decimal(10, 2)
-  metodoPrincipal     String    @default("CARD")
+  id                   String   @id @default(uuid())
+  buyerId              String   @unique
+  buyer                Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  leadId               String?  @unique
+  lead                 Lead?    @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  primerPagoId         String
+  primerPago           Pago     @relation(fields: [primerPagoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  montoTotalPagado     Decimal  @default(0) @db.Decimal(10, 2)
+  metodoPrincipal      String   @default("CARD")
   fechaConversionPayer DateTime @default(now())
-  estado              String    @default("ACTIVO")
+  estado               String   @default("ACTIVO")
 
-  customer            Customer?
+  customer Customer?
 
   @@map("PAYER")
 }
@@ -427,58 +492,64 @@ model Payer {
 // Atención, Asesores y CUSTOMER (PAYER -> CUSTOMER)
 // -----------------------------------------------------------------------------
 model Asesor {
-  id                     String             @id @default(uuid())
+  id                     String  @id @default(uuid())
   nombres                String
   apellidos              String
   especialidad           String
-  gradoAcademico         String             // MAGISTER, DOCTOR, LICENCIADO
-  email                  String             @unique
+  gradoAcademico         String // MAGISTER, DOCTOR, LICENCIADO
+  email                  String  @unique
   whatsapp               String
-  maxClientesSimultaneos Int                @default(10)
-  clientesActivos        Int                @default(0)
-  activo                 Boolean            @default(true)
+  maxClientesSimultaneos Int     @default(10)
+  clientesActivos        Int     @default(0)
+  activo                 Boolean @default(true)
 
-  customers              Customer[]
-  asignaciones           AsignacionAsesor[]
-  sesiones               Sesion[]
+  customers     Customer[]
+  asignaciones  AsignacionAsesor[]
+  sesiones      Sesion[]
+  oportunidades OportunidadComercial[]
+  diagnosticos  Diagnostico[]
+  propuestas    Propuesta[]
+  seguimientos  Seguimiento[]
+  escalamientos Escalamiento[]
+  citas         CitaVirtual[]
 
   @@map("ASESOR")
 }
 
 model Customer {
-  id                  String             @id @default(uuid())
-  buyerId             String             @unique
-  buyer               Buyer              @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  leadId              String?            @unique
-  lead                Lead?              @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  payerId             String             @unique
-  payer               Payer              @relation(fields: [payerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                  String     @id @default(uuid())
+  buyerId             String     @unique
+  buyer               Buyer      @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  leadId              String?    @unique
+  lead                Lead?      @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payerId             String     @unique
+  payer               Payer      @relation(fields: [payerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   cotizacionId        String
-  cotizacion          Cotizacion         @relation(fields: [cotizacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotizacion          Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   servicioId          String
-  servicio            Servicio           @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  servicio            Servicio   @relation(fields: [servicioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   asesorId            String?
-  asesor              Asesor?            @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fechaInicioServicio DateTime           @default(now())
-  estadoServicio      String             @default("ACTIVO") // ACTIVO, EN_CURSO, FINALIZADO, PAUSADO
-  observaciones       String?            @db.NVarChar(Max)
+  asesor              Asesor?    @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fechaInicioServicio DateTime   @default(now())
+  estadoServicio      String     @default("ACTIVO") // ACTIVO, EN_CURSO, FINALIZADO, PAUSADO
+  observaciones       String?    @db.NVarChar(Max)
 
-  asignaciones        AsignacionAsesor[]
-  sesiones            Sesion[]
+  asignaciones AsignacionAsesor[]
+  sesiones     Sesion[]
 
   @@map("CUSTOMER")
 }
 
 model AsignacionAsesor {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   customerId      String
-  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   asesorId        String
-  asesor          Asesor    @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fechaAsignacion DateTime  @default(now())
+  asesor          Asesor   @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fechaAsignacion DateTime @default(now())
   motivo          String?
-  asignadoPor     String    @default("SISTEMA")
-  activo          Boolean   @default(true)
+  asignadoPor     String   @default("SISTEMA")
+  activo          Boolean  @default(true)
 
   @@map("ASIGNACION_ASESOR")
 }
@@ -504,33 +575,247 @@ model Sesion {
 // Notificaciones y Configuración del Agente IA
 // -----------------------------------------------------------------------------
 model Notificacion {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   usuarioId     String?
-  usuario       Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  tipo          String    // LEAD_CALIFICADO, NEGOCIACION_INICIADA, PAGO_CONFIRMADO, SESION_PROGRAMADA, ESCALACION_HUMANA
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo          String // LEAD_CALIFICADO, NEGOCIACION_INICIADA, PAGO_CONFIRMADO, SESION_PROGRAMADA, ESCALACION_HUMANA
   titulo        String
-  mensaje       String    @db.NVarChar(Max)
-  leido         Boolean   @default(false)
-  fechaCreacion DateTime  @default(now())
-  metadata      String?   @db.NVarChar(Max)
+  mensaje       String   @db.NVarChar(Max)
+  leido         Boolean  @default(false)
+  fechaCreacion DateTime @default(now())
+  metadata      String?  @db.NVarChar(Max)
 
   @@map("NOTIFICACION")
 }
 
 model ConfiguracionAgente {
-  id                       String   @id @default(uuid())
-  proveedorIA              String   @default("GEMINI") // GEMINI, GROK
-  modelo                   String   @default("gemini-1.5-flash")
-  promptSistema            String   @db.NVarChar(Max)
-  tono                     String   @default("Profesional, empático, académico y resolutivo")
-  estilo                   String   @default("Consultor experto en investigación universitaria")
-  permitirNegociacion      Boolean  @default(true)
+  id                        String  @id @default(uuid())
+  proveedorIA               String  @default("GEMINI") // GEMINI, GROK
+  modelo                    String  @default("gemini-1.5-flash")
+  promptSistema             String  @db.NVarChar(Max)
+  tono                      String  @default("Profesional, empático, académico y resolutivo")
+  estilo                    String  @default("Consultor experto en investigación universitaria")
+  permitirNegociacion       Boolean @default(true)
   maxDescuentoNegociablePct Decimal @default(15.00) @db.Decimal(5, 2)
-  maxCuotasNegociables     Int      @default(3)
-  reglasObjecionesJson     String?  @db.NVarChar(Max)
-  horarioInicio            String   @default("08:00")
-  horarioFin               String   @default("22:00")
-  activo                   Boolean  @default(true)
+  maxCuotasNegociables      Int     @default(3)
+  reglasObjecionesJson      String? @db.NVarChar(Max)
+  horarioInicio             String  @default("08:00")
+  horarioFin                String  @default("22:00")
+  activo                    Boolean @default(true)
 
   @@map("CONFIGURACION_AGENTE")
+}
+
+// =============================================================================
+// FASE LEADS — Oportunidad comercial y negociación (informe cap. 4, Tabla 22 / Anexo A)
+// Restricciones que Prisma no expresa (CHECK e índices únicos filtrados) están en
+// prisma/migrations/1_leads_oportunidades/migration.sql.
+// =============================================================================
+
+/// Ciclo de negociación de un LEAD. Unidad de medida de K1–K5.
+model OportunidadComercial {
+  id                  String    @id @default(uuid())
+  leadId              String
+  lead                Lead      @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asesorResponsableId String? // NULL = atendida solo por el Agente IA
+  asesorResponsable   Asesor?   @relation(fields: [asesorResponsableId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fechaInicio         DateTime  @default(now())
+  fechaAptaCotizar    DateTime? // inicia el plazo de K2
+  estado              String    @default("ABIERTA") // CK_OPORT_ESTADO
+  fechaCierre         DateTime?
+  motivoCierre        String?
+  origen              String    @default("SISTEMA") // SISTEMA, MIGRACION
+  creadoEn            DateTime  @default(now())
+  actualizadoEn       DateTime  @updatedAt
+
+  historial      OportunidadHistorial[]
+  conversaciones Conversacion[]
+  diagnosticos   Diagnostico[]
+  propuestas     Propuesta[]
+  objeciones     Objecion[]
+  seguimientos   Seguimiento[]
+  escalamientos  Escalamiento[]
+  citas          CitaVirtual[]
+  transferencias TransferenciaPayer[]
+  conversion     ConversionPayerRef?
+
+  @@index([leadId])
+  @@map("OPORTUNIDAD_COMERCIAL")
+}
+
+/// Bitácora de transiciones de estado de la oportunidad (auditoría).
+model OportunidadHistorial {
+  id             String               @id @default(uuid())
+  oportunidadId  String
+  oportunidad    OportunidadComercial @relation(fields: [oportunidadId], references: [id], onDelete: Cascade)
+  estadoAnterior String?
+  estadoNuevo    String
+  fecha          DateTime             @default(now())
+  actorTipo      String // SISTEMA, ADMIN, ASESOR, AGENTE_IA, PAYERS
+  actorId        String?
+  motivo         String?
+
+  @@index([oportunidadId])
+  @@map("OPORTUNIDAD_HISTORIAL")
+}
+
+model PropuestaAjuste {
+  id               String          @id @default(uuid())
+  propuestaId      String
+  propuesta        Propuesta       @relation(fields: [propuestaId], references: [id], onDelete: Cascade)
+  reglaComercialId String?
+  reglaComercial   ReglaComercial? @relation(fields: [reglaComercialId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tipo             String // DESCUENTO, RECARGO (CK_AJUSTE_TIPO)
+  concepto         String
+  porcentaje       Decimal?        @db.Decimal(5, 2)
+  monto            Decimal         @db.Decimal(10, 2)
+
+  @@index([propuestaId])
+  @@map("PROPUESTA_AJUSTE")
+}
+
+model Entregable {
+  id             String                @id @default(uuid())
+  codigo         String                @unique
+  nombre         String
+  tipoEntregable String // CAPITULO, PROYECTO, CALIDAD, SUSTENTACION, EXTRA
+  descripcion    String?               @db.NVarChar(Max)
+  precioExtra    Decimal               @default(0) @db.Decimal(10, 2)
+  activo         Boolean               @default(true)
+  propuestas     PropuestaEntregable[]
+
+  @@map("ENTREGABLE")
+}
+
+model PropuestaEntregable {
+  propuestaId    String
+  propuesta      Propuesta  @relation(fields: [propuestaId], references: [id], onDelete: Cascade)
+  entregableId   String
+  entregable     Entregable @relation(fields: [entregableId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cantidad       Int        @default(1)
+  precioUnitario Decimal    @default(0) @db.Decimal(10, 2)
+  esExtra        Boolean    @default(false)
+
+  @@id([propuestaId, entregableId])
+  @@map("PROPUESTA_ENTREGABLE")
+}
+
+/// Respuesta del estudiante a una versión concreta de la propuesta (K3, K4).
+model RespuestaPropuesta {
+  id                 String    @id @default(uuid())
+  propuestaId        String
+  propuesta          Propuesta @relation(fields: [propuestaId], references: [id], onDelete: Cascade)
+  tipoRespuesta      String // ACEPTADA, RECHAZADA, SOLICITA_AJUSTE (CK_RESPUESTA_TIPO)
+  fechaRespuesta     DateTime  @default(now())
+  canal              String? // WHATSAPP, CHAT_WEB_INTERNO, PRESENCIAL, EMAIL
+  actorTipo          String // ESTUDIANTE, ADMIN, ASESOR
+  actorId            String?
+  observacion        String?   @db.NVarChar(Max)
+  evidenciaMensajeId String?
+
+  @@index([propuestaId])
+  @@map("RESPUESTA_PROPUESTA")
+}
+
+model Escalamiento {
+  id             String                @id @default(uuid())
+  oportunidadId  String?
+  oportunidad    OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  conversacionId String?
+  conversacion   Conversacion?         @relation(fields: [conversacionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leadId         String
+  lead           Lead                  @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asesorId       String?
+  asesor         Asesor?               @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  motivo         String // PRECIO_NO_CONFIGURADO, EXCEPCION_CONTRACTUAL, CONSULTA_ACADEMICA, OBJECION_REPETIDA, OTRO
+  destinoRol     String // ASESOR, ADMIN
+  prioridad      String                @default("MEDIA") // ALTA, MEDIA, BAJA
+  estado         String                @default("PENDIENTE") // PENDIENTE, EN_ATENCION, RESUELTO, DEVUELTO_IA
+  resumen        String?               @db.NVarChar(Max)
+  fecha          DateTime              @default(now())
+  fechaAtencion  DateTime?
+
+  @@index([oportunidadId])
+  @@map("ESCALAMIENTO")
+}
+
+/// Cita comercial opcional de LEADS (no confundir con SESION de CUSTOMERS).
+model CitaVirtual {
+  id                String               @id @default(uuid())
+  oportunidadId     String
+  oportunidad       OportunidadComercial @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asesorId          String?
+  asesor            Asesor?              @relation(fields: [asesorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inicio            DateTime
+  fin               DateTime // CK_CITA_HORA: inicio < fin
+  zonaHoraria       String               @default("America/Lima")
+  medio             String // GOOGLE_MEET, ZOOM, LLAMADA, WHATSAPP
+  enlace            String?
+  enlaceVerificado  Boolean              @default(false)
+  estado            String               @default("SOLICITADA") // CK_CITA_ESTADO
+  fechaConfirmacion DateTime?
+  creadoEn          DateTime             @default(now())
+  historial         CitaHistorial[]
+
+  @@index([oportunidadId])
+  @@index([asesorId, inicio])
+  @@map("CITA_VIRTUAL")
+}
+
+model CitaHistorial {
+  id             String      @id @default(uuid())
+  citaId         String
+  cita           CitaVirtual @relation(fields: [citaId], references: [id], onDelete: Cascade)
+  fechaCambio    DateTime    @default(now())
+  estadoAnterior String?
+  estadoNuevo    String
+  causa          String?
+  actorTipo      String?
+  actorId        String?
+
+  @@index([citaId])
+  @@map("CITA_HISTORIAL")
+}
+
+/// Acuerdo emitido UNA sola vez hacia PAYERS. No crea PAYER ni registra pagos.
+model TransferenciaPayer {
+  id             String               @id @default(uuid())
+  oportunidadId  String
+  oportunidad    OportunidadComercial @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  propuestaId    String // versión aceptada que se transfiere
+  propuesta      Propuesta            @relation(fields: [propuestaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fechaEnvio     DateTime             @default(now())
+  idempotencyKey String               @unique
+  estado         String               @default("ENVIADA") // ENVIADA, RECIBIDA, RECHAZADA
+
+  @@index([oportunidadId])
+  @@map("TRANSFERENCIA_PAYER")
+}
+
+/// Confirmación validada recibida desde PAYERS (K5). Sin montos ni medios de pago.
+model ConversionPayerRef {
+  id                String               @id @default(uuid())
+  oportunidadId     String               @unique
+  oportunidad       OportunidadComercial @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  eventId           String               @unique
+  fechaConfirmacion DateTime
+  ordenPagoRef      String?
+  recibidoEn        DateTime             @default(now())
+
+  @@map("CONVERSION_PAYER_REF")
+}
+
+/// Responsable económico de la decisión. Solo identifica; no registra pagos.
+model ResponsablePago {
+  id                String   @id @default(uuid())
+  leadId            String
+  lead              Lead     @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tipoResponsable   String // ESTUDIANTE, FAMILIAR, EMPRESA, OTRO
+  relacion          String?
+  nombre            String?
+  participaDecision Boolean  @default(true)
+  creadoEn          DateTime @default(now())
+
+  @@index([leadId])
+  @@map("RESPONSABLE_PAGO")
 }

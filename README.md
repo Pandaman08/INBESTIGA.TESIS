@@ -82,14 +82,24 @@ npm run build --workspace=@inbestiga/shared
 npm run prisma:generate --workspace=apps/api
 ```
 
-### Paso 4: Sincronizar Base de Datos y Ejecutar Seed
-```bash
-# Sincroniza las 26 tablas OLTP en SQL Server (inbestiga_db)
-npm run prisma:push --workspace=apps/api
+### Paso 4: Crear/actualizar la Base de Datos (migraciones) y Ejecutar Seed
+El esquema se versiona con **migraciones de Prisma** (`apps/api/prisma/migrations`). No use `prisma db push`
+sobre una base con datos: puede proponer cambios destructivos.
 
-# Carga el catálogo universitario, servicios, reglas comerciales y estudiantes de prueba
+```bash
+# Base NUEVA (vacía): aplica 0_init + migraciones de LEADS
+npm run prisma:migrate
+
+# Base EXISTENTE creada antes con `prisma db push`: márquela una sola vez como baseline y luego migre
+npm run prisma:baseline
+npm run prisma:migrate
+
+# (Opcional, BORRA y recarga datos de demostración) catálogo, servicios y estudiantes ficticios
 npm run prisma:seed --workspace=apps/api
 ```
+
+Antes de migrar una base con datos haga `BACKUP DATABASE`. Rollback de LEADS: [docs/leads/migraciones/rollback_P02.sql](docs/leads/migraciones/rollback_P02.sql).
+Detalle del modelo de oportunidades: [docs/leads/P02_modelo_oportunidad.md](docs/leads/P02_modelo_oportunidad.md).
 
 ### Paso 5: Desplegar los 4 Data Marts Independientes y Cargar Datos
 ```bash

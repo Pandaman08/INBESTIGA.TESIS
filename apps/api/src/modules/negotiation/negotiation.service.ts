@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AiAgentService } from '../ai-agent/ai-agent.service';
 import { WhatsAppService, CanalMensaje } from '../whatsapp/whatsapp.service';
 import { esBuyerFicticio, evaluarEnvioWhatsApp } from '../../common/contact-policy';
+import { OportunidadesService } from '../leads/oportunidades/oportunidades.service';
 
 /** Tipo de notificación usado como bandeja de cuarentena de remitentes no identificados. */
 export const NOTIF_CUARENTENA_WHATSAPP = 'WHATSAPP_REMITENTE_NO_IDENTIFICADO';
@@ -34,6 +35,7 @@ export class NegotiationService {
     private readonly aiAgentService: AiAgentService,
     @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
+    private readonly oportunidades: OportunidadesService,
   ) {}
 
   /**
@@ -287,14 +289,28 @@ export class NegotiationService {
     });
   }
 
+  /**
+   * Conversación vigente del estudiante, vinculada a su oportunidad abierta de LEADS.
+   * Si el BUYER ya es LEAD, se asegura (idempotente) una oportunidad abierta y la conversación
+   * queda asociada a ella; si la oportunidad anterior se cerró, se usa una conversación nueva.
+   */
   private async obtenerOCrearConversacion(buyerId: string, leadId: string | null) {
+    const oportunidadId = leadId
+      ? (await this.oportunidades.abrirParaLead(leadId, { tipo: 'SISTEMA' })).oportunidad.id
+      : null;
+
     const existente = await this.prisma.conversacion.findFirst({
-      where: { buyerId },
+      where: { buyerId, ...(oportunidadId ? { OR: [{ oportunidadId }, { oportunidadId: null }] } : {}) },
       orderBy: { fechaInicio: 'desc' },
     });
-    if (existente) return existente;
+    if (existente) {
+      if (oportunidadId && !existente.oportunidadId) {
+        return this.prisma.conversacion.update({ where: { id: existente.id }, data: { oportunidadId, leadId } });
+      }
+      return existente;
+    }
     return this.prisma.conversacion.create({
-      data: { buyerId, leadId, canal: 'WHATSAPP', estadoEtapa: 'DISCOVERY' },
+      data: { buyerId, leadId, oportunidadId, canal: 'WHATSAPP', estadoEtapa: 'DISCOVERY' },
     });
   }
 
@@ -355,6 +371,15 @@ export class NegotiationService {
       }),
     ]);
 
+    // La oportunidad no se borra: se cierra como DESCARTADA y la próxima interacción abre un ciclo nuevo.
+    if (conversacion.oportunidadId) {
+      const op = await this.prisma.oportunidadComercial.findUnique({ where: { id: conversacion.oportunidadId } });
+      if (op && !op.fechaCierre) {
+        await this.oportunidades.transicionar(op.id, 'DESCARTADA', { tipo: 'SISTEMA' }, 'REINICIO_SANDBOX: conversación de prueba reiniciada');
+      }
+      await this.prisma.conversacion.update({ where: { id }, data: { oportunidadId: null } });
+    }
+
     this.logger.log(`✓ Conversación de prueba ${id} reiniciada (solo datos LEADS).`);
 
     return {
@@ -394,13 +419,14 @@ export class NegotiationService {
         'Solo se pueden reiniciar estudiantes FICTICIOS (email con dominio de prueba, p. ej. @demo.inbestiga.test). Este registro se considera real.',
       );
     }
-    const [payer, pagos, cotizaciones, customer] = await Promise.all([
+    const [payer, pagos, cotizaciones, customer, transferencias] = await Promise.all([
       this.prisma.payer.count({ where: { buyerId: buyer.id } }),
       this.prisma.pago.count({ where: { buyerId: buyer.id } }),
       this.prisma.cotizacion.count({ where: { lead: { buyerId: buyer.id } } }),
       this.prisma.customer.count({ where: { buyerId: buyer.id } }),
+      this.prisma.transferenciaPayer.count({ where: { oportunidad: { lead: { buyerId: buyer.id } } } }),
     ]);
-    if (payer + pagos + cotizaciones + customer > 0) {
+    if (payer + pagos + cotizaciones + customer + transferencias > 0) {
       throw new ConflictException(
         'El estudiante ya tiene registros de PAYERS/CUSTOMERS (cotización, pago, payer o customer). LEADS no los borra; reinicio rechazado.',
       );

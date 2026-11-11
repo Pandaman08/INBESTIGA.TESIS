@@ -16,7 +16,9 @@
     "db:up": "docker compose --env-file .env -f infrastructure/docker/docker-compose.yml up -d",
     "openwa:up": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml up -d --build",
     "openwa:down": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml down",
-    "openwa:logs": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml logs -f openwa"
+    "openwa:logs": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml logs -f openwa",
+    "prisma:migrate": "npm run prisma:migrate --workspace=apps/api",
+    "prisma:baseline": "npm run prisma:baseline --workspace=apps/api"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
