@@ -6,6 +6,7 @@ import { ESTADOS_OPORTUNIDAD, TRANSICIONES } from './domain/oportunidad-estados'
 import { AbrirOportunidadDto, CrearPropuestaDto, ResponderPropuestaDto, TransicionOportunidadDto } from './leads.dto';
 import { OportunidadesService } from './oportunidades/oportunidades.service';
 import { PropuestasService } from './propuestas/propuestas.service';
+import { EventosLeadsService } from './conversaciones/eventos.service';
 
 type ReqConUsuario = Request & { user?: { id: string; rol: 'ADMIN' | 'ASESOR' } };
 const actorDe = (req: ReqConUsuario): Actor => ({ tipo: req.user?.rol === 'ASESOR' ? 'ASESOR' : 'ADMIN', id: req.user?.id });
@@ -18,7 +19,23 @@ export class LeadsController {
   constructor(
     private readonly oportunidades: OportunidadesService,
     private readonly propuestas: PropuestasService,
+    private readonly eventos: EventosLeadsService,
   ) {}
+
+  @Get('conversaciones/:id/timeline')
+  @ApiOperation({
+    summary: 'Línea de tiempo explicable: mensajes (canal, actor, estado de entrega) y eventos operativos verificables, sin razonamientos internos del modelo',
+  })
+  timeline(@Param('id') id: string) {
+    return this.eventos.timeline(id);
+  }
+
+  @Get('eventos')
+  @ApiOperation({ summary: 'Eventos operativos recientes para el tablero en vivo (no son KPI)' })
+  eventosRecientes(@Query('desde') desde?: string, @Query('limite') limite?: string) {
+    const d = desde ? new Date(desde) : undefined;
+    return this.eventos.listarRecientes(d && !isNaN(d.getTime()) ? d : undefined, limite ? Number(limite) : 100);
+  }
 
   @Get('estados')
   @ApiOperation({ summary: 'Contrato de estados de la oportunidad y transiciones (MANUAL / EVENTO)' })

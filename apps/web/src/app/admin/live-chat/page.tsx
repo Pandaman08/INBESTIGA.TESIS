@@ -91,7 +91,7 @@ function LiveChatContent() {
 
     try {
       // Modo prueba interna: el admin escribe como estudiante; nada sale por WhatsApp.
-      await api.enviarMensajePrueba(conversacionData.id, textToSend);
+      await api.enviarMensajePrueba(conversacionData.id, textToSend, nuevoIdMensaje());
       await cargarConversacionActiva(conversacionData.id);
     } catch (err: any) {
       alert(`Error al enviar mensaje: ${err.message}`);
@@ -487,6 +487,12 @@ const ESTADO_ENTREGA_DESC: Record<string, string> = {
   FAILED: 'El envío por WhatsApp falló. El mensaje no salió y no se reintenta automáticamente.',
   LOCAL_ONLY: 'Guardado solo en el sistema: chat de prueba interno, sin consentimiento o número no autorizado.',
 };
+
+/** Id único por envío. randomUUID solo existe en contexto seguro (https/localhost). */
+function nuevoIdMensaje(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 function etiquetaRemitente(m: any): string {
   if (m.direccion === 'INCOMING') {

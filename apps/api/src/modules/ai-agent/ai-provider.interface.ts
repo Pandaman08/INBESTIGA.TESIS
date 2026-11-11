@@ -21,6 +21,8 @@ export interface AIProviderResponse {
     name: string;
     arguments: Record<string, any>;
   }>;
+  /** De dónde salió la respuesta: un modelo de IA o la heurística local de contingencia. */
+  origen?: 'MODELO' | 'HEURISTICA_LOCAL';
 }
 
 export interface AIProvider {

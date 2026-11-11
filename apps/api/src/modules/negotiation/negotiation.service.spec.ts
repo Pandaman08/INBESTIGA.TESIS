@@ -48,12 +48,14 @@ describe('NegotiationService', () => {
     abrirParaLead: jest.fn().mockResolvedValue({ oportunidad: { id: 'op-1' }, creada: false }),
     transicionar: jest.fn().mockResolvedValue({}),
   };
+  const orquestador = { recibir: jest.fn().mockResolvedValue({ estado: 'RESPONDIDO', canal: 'WHATSAPP' }) };
+  const eventos = { registrar: jest.fn() };
   let svc: NegotiationService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma = crearPrisma();
-    svc = new NegotiationService(prisma as any, ai as any, whatsapp as any, oportunidades as any);
+    svc = new NegotiationService(prisma as any, ai as any, whatsapp as any, oportunidades as any, orquestador as any, eventos as any);
   });
 
   describe('remitentes de WhatsApp', () => {
@@ -62,61 +64,60 @@ describe('NegotiationService', () => {
 
       expect(r).toMatchObject({ exito: false, estado: 'CUARENTENA', motivo: 'NO_REGISTRADO' });
       expect(prisma.notificacion.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ tipo: NOTIF_CUARENTENA_WHATSAPP }) }));
-      // Nunca se consulta "la conversación más reciente" ni se escribe en conversaciones de otros
+      expect(eventos.registrar).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'REMITENTE_EN_CUARENTENA' }));
+      // Nunca se consulta "la conversación más reciente" ni se atiende el mensaje
       expect(prisma.conversacion.findFirst).not.toHaveBeenCalled();
-      expect(prisma.mensaje.create).not.toHaveBeenCalled();
-      expect(ai.procesarRespuestaIA).not.toHaveBeenCalled();
+      expect(orquestador.recibir).not.toHaveBeenCalled();
       expect(whatsapp.enviarMensaje).not.toHaveBeenCalled();
+    });
+
+    it('la bitácora de cuarentena no guarda el número ni el texto del remitente', async () => {
+      await svc.procesarMensajeEstudiante('78366141100181', 'Mi DNI es 12345678', { waChatId: '78366141100181@lid' });
+      const evento = JSON.stringify(eventos.registrar.mock.calls[0][0]);
+      expect(evento).not.toContain('78366141100181');
+      expect(evento).not.toContain('12345678');
     });
 
     it('número compartido por dos BUYER → cuarentena por ambigüedad', async () => {
       prisma.buyer.findMany.mockResolvedValue([buyerReal, { ...buyerReal, id: 'b-2' }]);
       const r = await svc.procesarMensajeEstudiante('51987654321', 'Hola');
       expect(r).toMatchObject({ estado: 'CUARENTENA', motivo: 'AMBIGUO' });
-      expect(ai.procesarRespuestaIA).not.toHaveBeenCalled();
+      expect(orquestador.recibir).not.toHaveBeenCalled();
+    });
+
+    it('remitente identificado → se delega al orquestador con el evento de entrada del webhook', async () => {
+      prisma.buyer.findMany.mockResolvedValue([buyerReal]);
+      await svc.procesarMensajeEstudiante('51987654321', 'Hola', { waChatId: '51987654321@c.us', eventoEntradaId: 's1:m1', providerMessageId: 'm1' });
+      expect(orquestador.recibir).toHaveBeenCalledWith({
+        canal: 'WHATSAPP',
+        buyerId: 'b-real',
+        contenido: 'Hola',
+        actor: { tipo: 'BUYER' },
+        eventoEntradaId: 's1:m1',
+        providerMessageId: 'm1',
+        waChatId: '51987654321@c.us',
+      });
     });
 
     it('LID vinculado previamente a un único estudiante → se atiende a ese estudiante', async () => {
       prisma.mensaje.findMany.mockResolvedValue([{ conversacion: { buyerId: 'b-real' } }]);
       prisma.buyer.findUnique.mockResolvedValue(buyerReal);
-      const r = await svc.procesarMensajeEstudiante('78366141100181', 'Hola', { waChatId: '78366141100181@lid' });
-      expect(r).toMatchObject({ exito: true, canal: 'WHATSAPP' });
-    });
-
-    it('estudiante sin consentimiento → la respuesta queda LOCAL_ONLY (no se envía)', async () => {
-      prisma.buyer.findMany.mockResolvedValue([{ ...buyerReal, consentimientoWhatsapp: false }]);
-      await svc.procesarMensajeEstudiante('51987654321', 'Hola');
-      expect(whatsapp.enviarMensaje).toHaveBeenCalledWith(expect.objectContaining({ motivoLocal: 'SIN_CONSENTIMIENTO' }));
-    });
-
-    it('estudiante ficticio con número no autorizado → LOCAL_ONLY', async () => {
-      delete process.env.WHATSAPP_TEST_ALLOWLIST;
-      prisma.buyer.findMany.mockResolvedValue([buyerFicticio]);
-      await svc.procesarMensajeEstudiante('51987654321', 'Hola');
-      expect(whatsapp.enviarMensaje).toHaveBeenCalledWith(expect.objectContaining({ motivoLocal: 'BUYER_FICTICIO_NO_AUTORIZADO' }));
-    });
-  });
-
-  describe('vínculo con la oportunidad de LEADS', () => {
-    it('una conversación nueva de un LEAD queda asociada a su oportunidad abierta', async () => {
-      prisma.buyer.findMany.mockResolvedValue([buyerReal]);
-      prisma.conversacion.findFirst.mockResolvedValue(null);
-      prisma.conversacion.create.mockResolvedValue({ id: 'conv-new' });
-      await svc.procesarMensajeEstudiante('51987654321', 'Hola');
-      expect(oportunidades.abrirParaLead).toHaveBeenCalledWith('lead-1', { tipo: 'SISTEMA' });
-      expect(prisma.conversacion.create).toHaveBeenCalledWith({ data: expect.objectContaining({ oportunidadId: 'op-1', leadId: 'lead-1' }) });
+      await svc.procesarMensajeEstudiante('78366141100181', 'Hola', { waChatId: '78366141100181@lid' });
+      expect(orquestador.recibir).toHaveBeenCalledWith(expect.objectContaining({ buyerId: 'b-real' }));
     });
   });
 
   describe('chat de prueba interno', () => {
-    it('registra la entrada como ADMIN_TEST con el usuario real y responde por CHAT_WEB_INTERNO', async () => {
-      prisma.conversacion.findUnique.mockResolvedValue({ id: 'conv-1', buyer: buyerReal });
-      await svc.procesarMensajePrueba({ conversacionId: 'conv-1', contenido: 'Hola', actorUsuarioId: 'u-admin' });
-
-      const entrada = prisma.mensaje.create.mock.calls[0][0].data;
-      expect(entrada).toMatchObject({ direccion: 'INCOMING', remitente: 'ADMIN_TEST', estadoEntrega: 'LOCAL_ONLY' });
-      expect(JSON.parse(entrada.metadata)).toMatchObject({ canal: 'CHAT_WEB_INTERNO', actorUsuarioId: 'u-admin' });
-      expect(whatsapp.enviarMensaje).toHaveBeenCalledWith(expect.objectContaining({ canal: 'CHAT_WEB_INTERNO' }));
+    it('usa el MISMO orquestador por CHAT_WEB_INTERNO con actor ADMIN_TEST y el usuario real', async () => {
+      prisma.conversacion.findUnique.mockResolvedValue({ buyerId: 'b-real' });
+      await svc.procesarMensajePrueba({ conversacionId: 'conv-1', contenido: ' Hola ', actorUsuarioId: 'u-admin', clientMessageId: 'cli-1' });
+      expect(orquestador.recibir).toHaveBeenCalledWith({
+        canal: 'CHAT_WEB_INTERNO',
+        buyerId: 'b-real',
+        contenido: 'Hola',
+        actor: { tipo: 'ADMIN_TEST', usuarioId: 'u-admin' },
+        eventoEntradaId: 'cli-1',
+      });
     });
   });
 

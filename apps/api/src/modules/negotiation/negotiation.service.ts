@@ -10,9 +10,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { AiAgentService } from '../ai-agent/ai-agent.service';
-import { WhatsAppService, CanalMensaje } from '../whatsapp/whatsapp.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { esBuyerFicticio, evaluarEnvioWhatsApp } from '../../common/contact-policy';
 import { OportunidadesService } from '../leads/oportunidades/oportunidades.service';
+import { OrquestadorConversacionalService } from '../leads/conversaciones/orquestador.service';
+import { EventosLeadsService } from '../leads/conversaciones/eventos.service';
 
 /** Tipo de notificación usado como bandeja de cuarentena de remitentes no identificados. */
 export const NOTIF_CUARENTENA_WHATSAPP = 'WHATSAPP_REMITENTE_NO_IDENTIFICADO';
@@ -36,6 +38,8 @@ export class NegotiationService {
     @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
     private readonly oportunidades: OportunidadesService,
+    private readonly orquestador: OrquestadorConversacionalService,
+    private readonly eventos: EventosLeadsService,
   ) {}
 
   /**
@@ -60,7 +64,7 @@ export class NegotiationService {
       throw new BadRequestException('El prospecto no cuenta con número de WhatsApp registrado.');
     }
 
-    const conversacion = await this.obtenerOCrearConversacion(buyer.id, buyer.lead?.id ?? null);
+    const conversacion = await this.orquestador.obtenerConversacionVigente(buyer.id, buyer.lead?.id ?? null);
 
     const mensajeInicial = await this.aiAgentService.generarMensajeInicial(buyer.id);
 
@@ -74,6 +78,20 @@ export class NegotiationService {
       metadata: { accion: 'INICIO_NEGOCIACION', score: buyer.leadScore },
       canal: 'WHATSAPP',
       motivoLocal: politica.permitido ? undefined : politica.motivo,
+      actor: 'AGENTE_IA',
+      oportunidadId: conversacion.oportunidadId ?? null,
+      consentimientoAplicado: politica.permitido ? 'VIGENTE' : politica.motivo === 'SIN_CONSENTIMIENTO' ? 'SIN_CONSENTIMIENTO' : 'NUMERO_NO_AUTORIZADO',
+    });
+
+    await this.eventos.registrar({
+      tipo: 'NEGOCIACION_INICIADA',
+      resumen: `Primer mensaje del agente (${envioResultado.estado}).`,
+      actorTipo: 'ADMIN',
+      canal: 'WHATSAPP',
+      conversacionId: conversacion.id,
+      oportunidadId: conversacion.oportunidadId ?? null,
+      mensajeId: envioResultado.mensajeId,
+      datos: { estadoEntrega: envioResultado.estado, error: envioResultado.error ?? null },
     });
 
     await this.prisma.conversacion.update({
@@ -109,7 +127,11 @@ export class NegotiationService {
    * Solo se atiende si el remitente corresponde a UN único BUYER; si no hay coincidencia
    * inequívoca, el mensaje va a cuarentena para revisión humana y no se responde.
    */
-  async procesarMensajeEstudiante(telefono: string, contenido: string, opts: { waChatId?: string } = {}) {
+  async procesarMensajeEstudiante(
+    telefono: string,
+    contenido: string,
+    opts: { waChatId?: string; eventoEntradaId?: string; providerMessageId?: string } = {},
+  ) {
     const waChatId = opts.waChatId;
     const identificacion = await this.identificarRemitente(telefono, waChatId);
 
@@ -118,20 +140,21 @@ export class NegotiationService {
       return { exito: false, estado: 'CUARENTENA', motivo: identificacion.tipo };
     }
 
-    const buyer = identificacion.buyer;
-    const politica = evaluarEnvioWhatsApp(buyer);
-    return this.atenderMensaje(buyer, contenido, {
+    return this.orquestador.recibir({
       canal: 'WHATSAPP',
-      remitenteEntrada: 'CLIENTE',
-      metadataEntrada: { canal: 'WHATSAPP', ...(waChatId ? { waChatId } : {}) },
-      motivoLocal: politica.permitido ? undefined : politica.motivo,
+      buyerId: identificacion.buyer.id,
+      contenido,
+      actor: { tipo: 'BUYER' },
+      eventoEntradaId: opts.eventoEntradaId,
+      providerMessageId: opts.providerMessageId,
+      waChatId,
     });
   }
 
   /**
    * Conversación de PRUEBA desde el panel (CHAT_WEB_INTERNO): el administrador escribe como
-   * estudiante de prueba. Nada sale por WhatsApp; todo queda LOCAL_ONLY y el mensaje de entrada
-   * se registra con actor ADMIN_TEST y el usuario real que lo escribió.
+   * estudiante de prueba. Usa el MISMO orquestador que WhatsApp; nada sale por WhatsApp y la
+   * entrada queda con actor ADMIN_TEST y el usuario real que la escribió.
    */
   async procesarMensajePrueba(params: {
     conversacionId?: string;
@@ -139,78 +162,33 @@ export class NegotiationService {
     telefono?: string;
     contenido: string;
     actorUsuarioId?: string;
+    /** Id generado por el cliente para que un doble envío no se procese dos veces. */
+    clientMessageId?: string;
   }) {
     const contenido = (params.contenido || '').trim();
     if (!contenido) throw new BadRequestException('El mensaje está vacío.');
 
-    let buyer: BuyerMin | null = null;
+    let buyerId: string | null = null;
     if (params.conversacionId) {
-      const conv = await this.prisma.conversacion.findUnique({ where: { id: params.conversacionId }, include: { buyer: true } });
-      buyer = conv?.buyer ?? null;
+      const conv = await this.prisma.conversacion.findUnique({ where: { id: params.conversacionId }, select: { buyerId: true } });
+      buyerId = conv?.buyerId ?? null;
     } else if (params.buyerId) {
-      buyer = await this.prisma.buyer.findUnique({ where: { id: params.buyerId } });
+      buyerId = (await this.prisma.buyer.findUnique({ where: { id: params.buyerId }, select: { id: true } }))?.id ?? null;
     } else if (params.telefono) {
       // Compatibilidad con el cliente web anterior: solo si el número identifica a UN buyer.
       const ident = await this.identificarRemitente(params.telefono);
-      if (ident.tipo === 'UNICO') buyer = ident.buyer;
+      if (ident.tipo === 'UNICO') buyerId = ident.buyer.id;
       else throw new BadRequestException('El teléfono no identifica a un único estudiante; envíe conversacionId o buyerId.');
     }
-    if (!buyer) throw new NotFoundException('Estudiante o conversación no encontrados.');
+    if (!buyerId) throw new NotFoundException('Estudiante o conversación no encontrados.');
 
-    return this.atenderMensaje(buyer, contenido, {
+    return this.orquestador.recibir({
       canal: 'CHAT_WEB_INTERNO',
-      remitenteEntrada: 'ADMIN_TEST',
-      metadataEntrada: { canal: 'CHAT_WEB_INTERNO', actor: 'ADMIN_TEST', actorUsuarioId: params.actorUsuarioId ?? null },
+      buyerId,
+      contenido,
+      actor: { tipo: 'ADMIN_TEST', usuarioId: params.actorUsuarioId ?? null },
+      eventoEntradaId: params.clientMessageId,
     });
-  }
-
-  /** Núcleo común: persiste la entrada, invoca al agente IA y registra/envía la respuesta. */
-  private async atenderMensaje(
-    buyer: BuyerMin,
-    contenido: string,
-    opts: { canal: CanalMensaje; remitenteEntrada: 'CLIENTE' | 'ADMIN_TEST'; metadataEntrada: Record<string, any>; motivoLocal?: string },
-  ) {
-    const lead = await this.prisma.lead.findUnique({ where: { buyerId: buyer.id }, select: { id: true } });
-    const conversacion = await this.obtenerOCrearConversacion(buyer.id, lead?.id ?? null);
-
-    await this.prisma.mensaje.create({
-      data: {
-        conversacionId: conversacion.id,
-        direccion: 'INCOMING',
-        remitente: opts.remitenteEntrada,
-        contenido,
-        tipoMensaje: 'TEXT',
-        estadoEntrega: opts.canal === 'CHAT_WEB_INTERNO' ? 'LOCAL_ONLY' : 'DELIVERED',
-        metadata: JSON.stringify(opts.metadataEntrada),
-      },
-    });
-
-    const { respuestaTexto, etapaNueva, actionMetadata } = await this.aiAgentService.procesarRespuestaIA({
-      conversacionId: conversacion.id,
-      buyerId: buyer.id,
-      ultimoMensajeCliente: contenido,
-    });
-
-    const envioResultado = await this.whatsappService.enviarMensaje({
-      conversacionId: conversacion.id,
-      telefono: buyer.whatsapp,
-      contenido: respuestaTexto,
-      tipoMensaje: actionMetadata?.tool === 'create_payment_request' ? 'PAYMENT_LINK' : 'TEXT',
-      remitente: 'AGENTE_IA',
-      metadata: actionMetadata,
-      canal: opts.canal,
-      motivoLocal: opts.motivoLocal,
-    });
-
-    return {
-      exito: true,
-      canal: opts.canal,
-      conversacionId: conversacion.id,
-      etapa: etapaNueva,
-      respuestaAgente: respuestaTexto,
-      actionMetadata,
-      envio: envioResultado,
-    };
   }
 
   /**
@@ -262,6 +240,13 @@ export class NegotiationService {
 
   /** Registra el mensaje en la bandeja de revisión humana. No responde al remitente. */
   private async enviarACuarentena(p: { telefono: string; waChatId?: string; contenido: string; motivo: string; candidatos?: string[] }) {
+    await this.eventos.registrar({
+      tipo: 'REMITENTE_EN_CUARENTENA',
+      resumen: p.motivo === 'AMBIGUO' ? 'Mensaje de WhatsApp con remitente ambiguo: en revisión humana.' : 'Mensaje de WhatsApp de remitente no registrado: en revisión humana.',
+      actorTipo: 'SISTEMA',
+      canal: 'WHATSAPP',
+      datos: { motivo: p.motivo, candidatos: p.candidatos?.length ?? 0 },
+    });
     this.logger.warn(
       `Remitente de WhatsApp en cuarentena (${p.motivo}). ` +
         (p.waChatId?.endsWith('@lid') ? 'Active RESOLVE_LID_TO_PHONE=true en OpenWA para resolver el teléfono.' : ''),
@@ -286,31 +271,6 @@ export class NegotiationService {
       where: { tipo: NOTIF_CUARENTENA_WHATSAPP },
       orderBy: { fechaCreacion: 'desc' },
       take: 200,
-    });
-  }
-
-  /**
-   * Conversación vigente del estudiante, vinculada a su oportunidad abierta de LEADS.
-   * Si el BUYER ya es LEAD, se asegura (idempotente) una oportunidad abierta y la conversación
-   * queda asociada a ella; si la oportunidad anterior se cerró, se usa una conversación nueva.
-   */
-  private async obtenerOCrearConversacion(buyerId: string, leadId: string | null) {
-    const oportunidadId = leadId
-      ? (await this.oportunidades.abrirParaLead(leadId, { tipo: 'SISTEMA' })).oportunidad.id
-      : null;
-
-    const existente = await this.prisma.conversacion.findFirst({
-      where: { buyerId, ...(oportunidadId ? { OR: [{ oportunidadId }, { oportunidadId: null }] } : {}) },
-      orderBy: { fechaInicio: 'desc' },
-    });
-    if (existente) {
-      if (oportunidadId && !existente.oportunidadId) {
-        return this.prisma.conversacion.update({ where: { id: existente.id }, data: { oportunidadId, leadId } });
-      }
-      return existente;
-    }
-    return this.prisma.conversacion.create({
-      data: { buyerId, leadId, oportunidadId, canal: 'WHATSAPP', estadoEtapa: 'DISCOVERY' },
     });
   }
 

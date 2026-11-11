@@ -61,11 +61,13 @@ export const api = {
     }),
   getConversacion: (id: string) => fetchApi(`/negotiation/conversacion/${id}`),
   /** Chat de prueba interno (CHAT_WEB_INTERNO): no envía nada por WhatsApp. */
-  enviarMensajePrueba: (conversacionId: string, contenido: string) =>
+  /** `clientMessageId` evita procesar dos veces el mismo envío (doble clic o reintento). */
+  enviarMensajePrueba: (conversacionId: string, contenido: string, clientMessageId: string) =>
     fetchApi('/negotiation/enviar-mensaje', {
       method: 'POST',
-      body: JSON.stringify({ conversacionId, contenido }),
+      body: JSON.stringify({ conversacionId, contenido, clientMessageId }),
     }),
+  getTimelineConversacion: (conversacionId: string) => fetchApi(`/leads/conversaciones/${conversacionId}/timeline`),
   limpiarConversacion: (id: string) =>
     fetchApi(`/negotiation/conversacion/${id}/limpiar`, {
       method: 'POST',

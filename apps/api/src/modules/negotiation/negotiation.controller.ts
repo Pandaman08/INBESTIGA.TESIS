@@ -27,7 +27,7 @@ export class NegotiationController {
   })
   async enviarMensaje(
     @Req() req: Request & { user?: { id: string } },
-    @Body() body: { conversacionId?: string; buyerId?: string; telefono?: string; contenido: string },
+    @Body() body: { conversacionId?: string; buyerId?: string; telefono?: string; contenido: string; clientMessageId?: string },
   ) {
     return this.negotiationService.procesarMensajePrueba({ ...body, actorUsuarioId: req.user?.id });
   }

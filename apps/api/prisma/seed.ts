@@ -27,6 +27,7 @@ async function main() {
   await prisma.pago.deleteMany({});
   await prisma.cotizacion.deleteMany({});
   // LEADS (P02): tablas que referencian PROPUESTA, OPORTUNIDAD, LEAD o ASESOR
+  await prisma.eventoLeads.deleteMany({});
   await prisma.respuestaPropuesta.deleteMany({});
   await prisma.propuestaEntregable.deleteMany({});
   await prisma.propuestaAjuste.deleteMany({});

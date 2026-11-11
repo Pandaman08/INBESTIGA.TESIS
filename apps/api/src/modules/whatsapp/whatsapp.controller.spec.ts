@@ -62,6 +62,10 @@ describe('WhatsAppController.handleWebhook', () => {
   it('remitente @lid: usa senderPhone si OpenWA lo resolvió y conserva el chatId', async () => {
     enviar(mensaje({ from: '78366141100181@lid', senderPhone: '51911222333' }, 'l1'));
     await flush();
-    expect(negotiation.procesarMensajeEstudiante).toHaveBeenCalledWith('51911222333', 'Hola', { waChatId: '78366141100181@lid' });
+    expect(negotiation.procesarMensajeEstudiante).toHaveBeenCalledWith('51911222333', 'Hola', {
+      waChatId: '78366141100181@lid',
+      eventoEntradaId: 's:m1',
+      providerMessageId: 'm1',
+    });
   });
 });

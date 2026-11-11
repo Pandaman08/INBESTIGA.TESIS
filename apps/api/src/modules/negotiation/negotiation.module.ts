@@ -4,9 +4,10 @@ import { NegotiationController } from './negotiation.controller';
 import { AiAgentModule } from '../ai-agent/ai-agent.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { LeadsModule } from '../leads/leads.module';
+import { LeadsConversacionesModule } from '../leads/conversaciones/leads-conversaciones.module';
 
 @Module({
-  imports: [AiAgentModule, LeadsModule, forwardRef(() => WhatsAppModule)],
+  imports: [AiAgentModule, LeadsModule, forwardRef(() => LeadsConversacionesModule), forwardRef(() => WhatsAppModule)],
   controllers: [NegotiationController],
   providers: [NegotiationService],
   exports: [NegotiationService],

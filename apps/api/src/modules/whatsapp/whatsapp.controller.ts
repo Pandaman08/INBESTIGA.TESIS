@@ -49,8 +49,6 @@ export class WhatsAppController {
   private readonly logger = new Logger(WhatsAppController.name);
   /** Claves de idempotencia ya procesadas (OpenWA reintenta entregas). */
   private readonly procesados = new Map<string, number>();
-  /** Cola por chat: los mensajes de un mismo estudiante se atienden en orden. */
-  private readonly colas = new Map<string, Promise<unknown>>();
   private avisoSinFirma = false;
 
   constructor(
@@ -114,11 +112,13 @@ export class WhatsAppController {
 
     this.logger.log(`Mensaje entrante de ${waChatId}${telefono !== waChatId.split('@')[0] ? ` (tel. ${telefono})` : ''}: "${texto.substring(0, 80)}"`);
 
-    // Responder 200 de inmediato: la IA puede tardar más que el timeout del webhook
-    // de OpenWA y un reintento generaría respuestas duplicadas al estudiante.
-    this.encolar(waChatId, () =>
-      this.negotiationService.procesarMensajeEstudiante(telefono, texto, { waChatId }),
-    );
+    // Responder 200 de inmediato: la IA puede tardar más que el timeout del webhook de OpenWA.
+    // El orquestador serializa por estudiante y la BD deduplica por evento (sessionId + messageId),
+    // así que un reintento de OpenWA no genera una segunda respuesta ni siquiera tras un reinicio.
+    const eventoEntradaId = `${payload.sessionId ?? 'sin-sesion'}:${data.id ?? idemKey}`;
+    void this.negotiationService
+      .procesarMensajeEstudiante(telefono, texto, { waChatId, eventoEntradaId, providerMessageId: data.id })
+      .catch((e) => this.logger.error(`Error procesando mensaje de WhatsApp: ${e.message}`, e.stack));
 
     return { status: 'accepted' };
   }
@@ -180,14 +180,4 @@ export class WhatsAppController {
     return false;
   }
 
-  private encolar(chatId: string, tarea: () => Promise<unknown>) {
-    const previa = this.colas.get(chatId) ?? Promise.resolve();
-    const siguiente = previa
-      .then(tarea)
-      .catch((e) => this.logger.error(`Error procesando mensaje de ${chatId}: ${e.message}`, e.stack))
-      .finally(() => {
-        if (this.colas.get(chatId) === siguiente) this.colas.delete(chatId);
-      });
-    this.colas.set(chatId, siguiente);
-  }
 }

@@ -285,18 +285,30 @@ model Conversacion {
 }
 
 model Mensaje {
-  id             String       @id @default(uuid())
-  conversacionId String
-  conversacion   Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  direccion      String // INCOMING (Cliente->Bot), OUTGOING (Bot->Cliente)
-  remitente      String // CLIENTE, AGENTE_IA, ASESOR_HUMANO
-  contenido      String       @db.NVarChar(Max)
-  tipoMensaje    String       @default("TEXT") // TEXT, PAYMENT_LINK, QUOTE, DOCUMENT
-  fechaHora      DateTime     @default(now())
-  estadoEntrega  String       @default("SENT") // SENT, DELIVERED, READ, FAILED
-  respuestaA     String?
-  metadata       String?      @db.NVarChar(Max) // JSON de tools invocadas, etc.
+  id                     String                @id @default(uuid())
+  conversacionId         String
+  conversacion           Conversacion          @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  direccion              String // INCOMING (Cliente->Bot), OUTGOING (Bot->Cliente)
+  remitente              String // CLIENTE, AGENTE_IA, ASESOR_HUMANO
+  contenido              String                @db.NVarChar(Max)
+  tipoMensaje            String                @default("TEXT") // TEXT, PAYMENT_LINK, QUOTE, DOCUMENT
+  fechaHora              DateTime              @default(now())
+  estadoEntrega          String                @default("SENT") // SENT, DELIVERED, READ, FAILED
+  respuestaA             String?
+  metadata               String?               @db.NVarChar(Max) // JSON de tools invocadas, etc.
+  // P03 · Contrato de mensajes del orquestador LEADS (canal-agnóstico)
+  canal                  String? // WHATSAPP, CHAT_WEB_INTERNO (NULL = mensaje anterior a P03)
+  actor                  String? // BUYER, AGENTE_IA, ASESOR, ADMIN_TEST, SISTEMA
+  actorUsuarioId         String? // usuario real del panel cuando actor = ADMIN_TEST/ASESOR
+  oportunidadId          String?
+  oportunidad            OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  eventoEntradaId        String? // clave idempotente del evento de entrada (UX_MENSAJE_EVENTO)
+  providerMessageId      String? // id del mensaje en el proveedor (OpenWA)
+  consentimientoAplicado String? // VIGENTE, SIN_CONSENTIMIENTO, NUMERO_NO_AUTORIZADO, NO_APLICA
+  estadoProcesamiento    String? // entrantes: RECIBIDO, PROCESADO, ERROR
 
+  @@index([conversacionId, fechaHora])
+  @@index([oportunidadId])
   @@map("MENSAJE")
 }
 
@@ -638,6 +650,8 @@ model OportunidadComercial {
   citas          CitaVirtual[]
   transferencias TransferenciaPayer[]
   conversion     ConversionPayerRef?
+  mensajes       Mensaje[]
+  eventos        EventoLeads[]
 
   @@index([leadId])
   @@map("OPORTUNIDAD_COMERCIAL")
@@ -818,4 +832,26 @@ model ResponsablePago {
 
   @@index([leadId])
   @@map("RESPONSABLE_PAGO")
+}
+
+/// Bitácora operativa de LEADS (P03): alimenta la línea de tiempo y el tablero en vivo.
+/// NO es un KPI ni guarda razonamientos del modelo: solo hechos verificables y resúmenes.
+model EventoLeads {
+  id             String                @id @default(uuid())
+  tipo           String // MENSAJE_RECIBIDO, MENSAJE_DUPLICADO, RESPUESTA_GENERADA, HERRAMIENTA_EJECUTADA, ...
+  fecha          DateTime              @default(now())
+  oportunidadId  String?
+  oportunidad    OportunidadComercial? @relation(fields: [oportunidadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  conversacionId String?
+  mensajeId      String?
+  canal          String?
+  actorTipo      String // BUYER, AGENTE_IA, ADMIN_TEST, ADMIN, SISTEMA
+  actorId        String?
+  resumen        String // una línea legible
+  datos          String?               @db.NVarChar(Max) // JSON saneado (sin PII de contacto)
+
+  @@index([conversacionId, fecha])
+  @@index([oportunidadId, fecha])
+  @@index([tipo, fecha])
+  @@map("EVENTO_LEADS")
 }
