@@ -1,0 +1,34 @@
+# =============================================================================
+# INBESTIGA.TESIS - Gateway de WhatsApp (OpenWA)
+#
+# Requiere el repositorio OpenWA clonado como carpeta hermana de INBESTIGA.TESIS:
+#   Agente leads/
+#   ├── INBESTIGA.TESIS/
+#   └── OpenWA/            (git clone https://github.com/Pandaman08/OpenWA.git)
+#
+# Uso (desde la raíz de INBESTIGA.TESIS):
+#   npm run openwa:up
+#
+# Lee OPENWA_API_KEY y OPENWA_WEBHOOK_SECRET del .env de la raíz.
+# Dashboard OpenWA: http://localhost:2785  ·  Swagger: http://localhost:2785/api/docs
+# =============================================================================
+
+services:
+  openwa:
+    extends:
+      file: ../../../OpenWA/docker-compose.dev.yml
+      service: openwa
+    container_name: inbestiga-openwa
+    extra_hosts:
+      # Permite que el contenedor llame a la API de INBESTIGA que corre en el host (Linux).
+      - 'host.docker.internal:host-gateway'
+    environment:
+      # La API key de INBESTIGA (OPENWA_API_KEY) se usa como master key del gateway.
+      - API_MASTER_KEY=${OPENWA_API_KEY:?Defina OPENWA_API_KEY en el .env de la raiz}
+      # El webhook apunta al host; OpenWA bloquea destinos internos (SSRF) salvo los permitidos aquí.
+      - SSRF_ALLOWED_HOSTS=host.docker.internal,localhost
+      # Si WhatsApp entrega el remitente como @lid, adjuntar su teléfono (senderPhone) al webhook.
+      - RESOLVE_LID_TO_PHONE=true
+      # whatsapp-web.js: menor riesgo de bloqueo que baileys (usa más RAM).
+      - ENGINE_TYPE=${OPENWA_ENGINE_TYPE:-whatsapp-web.js}
+      - AUTO_START_SESSIONS=true

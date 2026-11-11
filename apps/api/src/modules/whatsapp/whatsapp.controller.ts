@@ -1,12 +1,53 @@
-import { Controller, Post, Body, Get, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Logger,
+  Inject,
+  forwardRef,
+  Headers,
+  Req,
+  HttpCode,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { createHmac, timingSafeEqual } from 'crypto';
+import type { Request } from 'express';
 import { WhatsAppService } from './whatsapp.service';
 import { NegotiationService } from '../negotiation/negotiation.service';
+
+/**
+ * Sobre que OpenWA envía a cada webhook (OpenWA/docs/06-api-specification.md §6.6):
+ * { event, timestamp, sessionId, idempotencyKey, deliveryId, data }
+ */
+interface OpenWAWebhookEnvelope {
+  event: string;
+  sessionId?: string;
+  idempotencyKey?: string;
+  data?: {
+    id?: string;
+    from?: string;
+    to?: string;
+    body?: string;
+    type?: string;
+    fromMe?: boolean;
+    isGroup?: boolean;
+    kind?: 'individual' | 'group' | 'channel' | 'status' | 'broadcast' | 'unknown';
+    senderPhone?: string | null;
+    status?: string;
+    [key: string]: any;
+  };
+}
 
 @ApiTags('WhatsApp / OpenWA')
 @Controller('whatsapp')
 export class WhatsAppController {
   private readonly logger = new Logger(WhatsAppController.name);
+  /** Claves de idempotencia ya procesadas (OpenWA reintenta entregas). */
+  private readonly procesados = new Map<string, number>();
+  /** Cola por chat: los mensajes de un mismo estudiante se atienden en orden. */
+  private readonly colas = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly whatsappService: WhatsAppService,
@@ -15,33 +56,65 @@ export class WhatsAppController {
   ) {}
 
   @Get('status')
-  @ApiOperation({ summary: 'Obtener estado de la sesión de WhatsApp en OpenWA y QR si aplica' })
+  @ApiOperation({ summary: 'Estado de la sesión de WhatsApp en OpenWA y QR (data URL) si falta vincular' })
   async getStatus() {
     return this.whatsappService.getStatus();
   }
 
+  @Post('setup')
+  @ApiOperation({ summary: 'Crea/inicia la sesión en OpenWA y registra el webhook de INBESTIGA (idempotente)' })
+  async setup() {
+    return this.whatsappService.configurarIntegracion();
+  }
+
   @Post('webhook')
-  @ApiOperation({ summary: 'Receptor de Webhooks entrantes de OpenWA para mensajes de WhatsApp' })
-  async handleWebhook(@Body() payload: any) {
-    this.logger.log(`Webhook entrante de OpenWA: ${JSON.stringify(payload).substring(0, 150)}...`);
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Receptor de webhooks de OpenWA (message.received, session.status)' })
+  handleWebhook(
+    @Req() req: Request & { rawBody?: Buffer },
+    @Body() payload: OpenWAWebhookEnvelope,
+    @Headers('x-openwa-signature') signature?: string,
+    @Headers('x-openwa-idempotency-key') idempotencyHeader?: string,
+  ) {
+    this.verificarFirma(req.rawBody, signature);
 
-    // OpenWA despacha eventos con estructura { event: 'message.received', data: { from, body, direction } }
-    const mensajeData = payload.data || payload;
-    const isOutgoing = mensajeData.direction === 'outgoing' || mensajeData.fromMe === true;
-    const remitente = mensajeData.from || mensajeData.sender || mensajeData.chatId;
-    const contenido = mensajeData.body || mensajeData.text || mensajeData.content;
+    const event = payload?.event;
+    const data = payload?.data;
 
-    // Ignorar mensajes enviados por el propio bot
-    if (isOutgoing || !contenido || !remitente) {
+    if (event === 'session.status') {
+      this.logger.log(`OpenWA sesión ${payload.sessionId}: estado → ${data?.status}`);
+      return { status: 'ok' };
+    }
+    if (event !== 'message.received' || !data) {
+      return { status: 'ignored', reason: `evento ${event}` };
+    }
+
+    // Solo chats 1-a-1 con texto; nunca grupos, estados, canales ni mensajes propios.
+    const esIndividual = data.kind ? data.kind === 'individual' : !data.isGroup;
+    const texto = (data.body || '').trim();
+    if (data.fromMe || !esIndividual || !data.from || data.type !== 'text' || !texto) {
       return { status: 'ignored' };
     }
 
-    const cleanPhone = String(remitente).replace(/\D/g, '');
-    this.logger.log(`Mensaje entrante de WhatsApp desde teléfono ${cleanPhone}: "${contenido}"`);
+    const idemKey = idempotencyHeader || payload.idempotencyKey || data.id;
+    if (idemKey && this.yaProcesado(idemKey)) {
+      return { status: 'duplicate' };
+    }
 
-    // Procesar a través del orquestador de negociación
-    const resultado = await this.negotiationService.procesarMensajeEstudiante(cleanPhone, contenido);
-    return { status: 'processed', resultado };
+    // Si WhatsApp entrega un identificador de privacidad (@lid), usar el teléfono
+    // resuelto por OpenWA (requiere RESOLVE_LID_TO_PHONE=true en OpenWA).
+    const waChatId = data.from;
+    const telefono = waChatId.endsWith('@lid') && data.senderPhone ? data.senderPhone : waChatId.split('@')[0];
+
+    this.logger.log(`Mensaje entrante de ${waChatId}${telefono !== waChatId.split('@')[0] ? ` (tel. ${telefono})` : ''}: "${texto.substring(0, 80)}"`);
+
+    // Responder 200 de inmediato: la IA puede tardar más que el timeout del webhook
+    // de OpenWA y un reintento generaría respuestas duplicadas al estudiante.
+    this.encolar(waChatId, () =>
+      this.negotiationService.procesarMensajeEstudiante(telefono, texto, { waChatId }),
+    );
+
+    return { status: 'accepted' };
   }
 
   @Post('simulate-incoming')
@@ -50,5 +123,40 @@ export class WhatsAppController {
     const texto = body.contenido || body.mensaje || body.text || '';
     this.logger.log(`Simulación de mensaje entrante de estudiante: ${body.telefono} -> "${texto}"`);
     return this.negotiationService.procesarMensajeEstudiante(body.telefono, texto);
+  }
+
+  private verificarFirma(rawBody: Buffer | undefined, signature: string | undefined) {
+    const secret = process.env.OPENWA_WEBHOOK_SECRET;
+    if (!secret) return; // sin secreto configurado no se exige firma (solo desarrollo)
+
+    if (!signature || !rawBody) {
+      throw new UnauthorizedException('Firma de webhook ausente');
+    }
+    const esperado = Buffer.from('sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex'));
+    const recibido = Buffer.from(signature);
+    if (esperado.length !== recibido.length || !timingSafeEqual(esperado, recibido)) {
+      throw new UnauthorizedException('Firma de webhook inválida');
+    }
+  }
+
+  private yaProcesado(key: string): boolean {
+    const ahora = Date.now();
+    if (this.procesados.size > 5000) {
+      for (const [k, t] of this.procesados) if (ahora - t > 60 * 60 * 1000) this.procesados.delete(k);
+    }
+    if (this.procesados.has(key)) return true;
+    this.procesados.set(key, ahora);
+    return false;
+  }
+
+  private encolar(chatId: string, tarea: () => Promise<unknown>) {
+    const previa = this.colas.get(chatId) ?? Promise.resolve();
+    const siguiente = previa
+      .then(tarea)
+      .catch((e) => this.logger.error(`Error procesando mensaje de ${chatId}: ${e.message}`, e.stack))
+      .finally(() => {
+        if (this.colas.get(chatId) === siguiente) this.colas.delete(chatId);
+      });
+    this.colas.set(chatId, siguiente);
   }
 }

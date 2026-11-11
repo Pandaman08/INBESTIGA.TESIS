@@ -110,6 +110,26 @@ npm run dev:web
 # Aplicación web disponible en: http://localhost:3000
 ```
 
+### Paso 7: Conectar WhatsApp (gateway OpenWA)
+
+El agente usa [OpenWA](https://github.com/Pandaman08/OpenWA) como gateway de WhatsApp. Debe estar clonado **junto a** este repositorio:
+
+```
+Agente leads/
+├── INBESTIGA.TESIS/
+└── OpenWA/        # git clone https://github.com/Pandaman08/OpenWA.git
+```
+
+1. En el `.env` de la raíz defina `OPENWA_API_KEY` y `OPENWA_WEBHOOK_SECRET` (valores aleatorios).
+2. Levante el gateway (la primera vez compila la imagen, tarda unos minutos):
+   ```bash
+   npm run openwa:up      # logs: npm run openwa:logs
+   ```
+3. Inicie la API (`npm run dev:api`). Al arrancar crea la sesión `OPENWA_SESSION_NAME` y registra el webhook automáticamente (o manualmente con `POST /api/v1/whatsapp/setup`).
+4. Vincule el número: escanee el QR desde el dashboard de OpenWA (`http://localhost:2785`) o desde `GET /api/v1/whatsapp/status` (campo `qr`, data URL). Use un **número dedicado**: OpenWA no es la API oficial de Meta y existe riesgo de bloqueo.
+
+Flujo: estudiante escribe → OpenWA → `POST /api/v1/whatsapp/webhook` (firma HMAC verificada) → `NegotiationService` + Agente IA → `send-text` de OpenWA → estudiante.
+
 ---
 
 ## 4. Guía Rápida de Demostración para el Docente
@@ -131,4 +151,4 @@ npm run dev:web
 
 * **SQL Server**: Usuario `sa` / Contraseña `Inbestiga2026!StrongPass` / Puerto `1433`
 * **Administrador Web**: `admin@inbestiga.edu.pe` / Contraseña `Admin123*Inbestiga`
-* **OpenWA API**: Puerto `2785` / Clave `mi-clave-segura-para-pruebas`
+* **OpenWA API**: Puerto `2785` / Clave: el valor de `OPENWA_API_KEY` en `.env`

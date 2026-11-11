@@ -18,7 +18,9 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // apps/api/.env tiene prioridad; el .env de la raíz del monorepo completa lo que falte
+    // (allí viven OPENWA_API_KEY / OPENWA_WEBHOOK_SECRET compartidos con el compose de OpenWA).
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
     DatabaseModule,
     AuthModule,
     ScoringModule,

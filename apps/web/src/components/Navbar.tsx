@@ -31,9 +31,8 @@ export default function Navbar() {
     api
       .getWhatsAppStatus()
       .then((res) => {
-        if (res?.connected || res?.session === 'CONNECTED' || res?.status === 'AUTHENTICATED') {
-          setWaConnected(true);
-        }
+        // GET /whatsapp/status → { conectado, status: 'ready' | 'qr_ready' | ... }
+        setWaConnected(res?.conectado === true || res?.status === 'ready');
       })
       .catch(() => setWaConnected(false));
   }, []);

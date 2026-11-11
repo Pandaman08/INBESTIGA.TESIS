@@ -102,8 +102,9 @@ export class NegotiationService {
   /**
    * Procesa la respuesta entrante del estudiante vía OpenWA Webhook o simulación en vivo.
    */
-  async procesarMensajeEstudiante(telefono: string, contenido: string) {
+  async procesarMensajeEstudiante(telefono: string, contenido: string, opts: { waChatId?: string } = {}) {
     const cleanPhone = telefono.replace(/\D/g, '');
+    const waChatId = opts.waChatId;
 
     // Buscar el buyer correspondiente por teléfono
     let buyer = await this.prisma.buyer.findFirst({
@@ -116,12 +117,14 @@ export class NegotiationService {
       },
     });
 
-    // Si no se encuentra directamente (por ejemplo, si WhatsApp entrega un LID @lid como 78366141100181):
-    if (!buyer) {
-      // 1. Buscar si hay mensajes previos donde el metadata contenga este identificador
+    // Si WhatsApp entregó un identificador de privacidad (@lid) sin teléfono resuelto,
+    // buscar un mensaje entrante previo donde ya se haya registrado ese mismo chat.
+    // Nunca se "adivina" el estudiante: responder al equivocado filtraría datos de otra persona.
+    if (!buyer && waChatId) {
       const mensajePrevio = await this.prisma.mensaje.findFirst({
         where: {
-          metadata: { contains: cleanPhone },
+          direccion: 'INCOMING',
+          metadata: { contains: `"waChatId":"${waChatId}"` },
         },
         include: { conversacion: { include: { buyer: true } } },
         orderBy: { fechaHora: 'desc' },
@@ -129,26 +132,15 @@ export class NegotiationService {
 
       if (mensajePrevio?.conversacion?.buyer) {
         buyer = mensajePrevio.conversacion.buyer;
-        this.logger.log(`✓ Buyer ${buyer.nombres} identificado a través del LID ${cleanPhone} registrado en metadata.`);
-      } else {
-        // 2. Asociar al buyer con conversación activa más reciente
-        const conversacionReciente = await this.prisma.conversacion.findFirst({
-          where: {
-            mensajes: { some: {} },
-          },
-          orderBy: { fechaUltimaActividad: 'desc' },
-          include: { buyer: true },
-        });
-
-        if (conversacionReciente?.buyer) {
-          buyer = conversacionReciente.buyer;
-          this.logger.log(`✓ Asociando mensaje de WhatsApp (LID: ${cleanPhone}) al prospecto activo más reciente: ${buyer.nombres} (${buyer.whatsapp})`);
-        }
+        this.logger.log(`✓ Buyer ${buyer.nombres} identificado por su chat de WhatsApp ${waChatId}.`);
       }
     }
 
     if (!buyer) {
-      this.logger.warn(`No se encontró ningún Buyer registrado para el remitente ${cleanPhone}`);
+      this.logger.warn(
+        `No se encontró ningún Buyer registrado para el remitente ${waChatId || cleanPhone}. ` +
+          (waChatId?.endsWith('@lid') ? 'Active RESOLVE_LID_TO_PHONE=true en OpenWA para resolver el teléfono.' : ''),
+      );
       return { exito: false, mensaje: 'Estudiante no registrado' };
     }
 
@@ -177,6 +169,7 @@ export class NegotiationService {
         contenido,
         tipoMensaje: 'TEXT',
         estadoEntrega: 'DELIVERED',
+        ...(waChatId ? { metadata: JSON.stringify({ waChatId }) } : {}),
       },
     });
 

@@ -6,10 +6,18 @@ import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
 
-  // Soporte para payloads grandes de webhooks de WhatsApp (OpenWA)
-  app.use(json({ limit: '50mb' }));
+  // Soporte para payloads grandes de webhooks de WhatsApp (OpenWA).
+  // Se conserva el cuerpo crudo (req.rawBody) para verificar la firma HMAC X-OpenWA-Signature.
+  app.use(
+    json({
+      limit: '50mb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   // 1. Configuración de Prefijo Global
