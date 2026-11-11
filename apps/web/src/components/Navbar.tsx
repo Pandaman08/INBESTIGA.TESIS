@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getToken } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Navbar() {
@@ -27,7 +28,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    // Verificar estado de sesión WhatsApp en OpenWA
+    // Verificar estado de sesión WhatsApp en OpenWA (requiere sesión administrativa)
+    if (!getToken()) return;
     api
       .getWhatsAppStatus()
       .then((res) => {

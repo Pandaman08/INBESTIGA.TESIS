@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Param, Body } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { NegotiationService } from './negotiation.service';
 
@@ -20,9 +21,15 @@ export class NegotiationController {
   }
 
   @Post('enviar-mensaje')
-  @ApiOperation({ summary: 'Permite enviar un mensaje de prueba a la negociación activa' })
-  async enviarMensaje(@Body() body: { telefono: string; contenido: string }) {
-    return this.negotiationService.procesarMensajeEstudiante(body.telefono, body.contenido);
+  @ApiOperation({
+    summary:
+      'Chat de PRUEBA (CHAT_WEB_INTERNO): el admin escribe como estudiante de prueba. Se registra como ADMIN_TEST y la respuesta queda LOCAL_ONLY; nada sale por WhatsApp.',
+  })
+  async enviarMensaje(
+    @Req() req: Request & { user?: { id: string } },
+    @Body() body: { conversacionId?: string; buyerId?: string; telefono?: string; contenido: string },
+  ) {
+    return this.negotiationService.procesarMensajePrueba({ ...body, actorUsuarioId: req.user?.id });
   }
 
   @Post('conversacion/:id/limpiar')

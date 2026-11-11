@@ -4,6 +4,9 @@ import { ToolDefinition } from '../ai-provider.interface';
 import { BuyerProfile } from '@inbestiga/shared';
 import { CommercialRulesService } from '../../commercial-rules/commercial-rules.service';
 
+/** Etapas que el agente puede fijar. PAYMENT_PENDING/CONVERTED solo los fija el flujo de PAYERS. */
+const ETAPAS_PERMITIDAS_IA = ['DISCOVERY', 'DIAGNOSTIC', 'PROPOSAL', 'NEGOTIATION', 'OBJECTION_HANDLING', 'HUMAN_ESCALATION'];
+
 @Injectable()
 export class AiToolsService {
   private readonly logger = new Logger(AiToolsService.name);
@@ -70,13 +73,13 @@ export class AiToolsService {
       },
       {
         name: 'update_stage',
-        description: 'Actualiza la fase actual de la negociación en el CRM (DISCOVERY, DIAGNOSTIC, PROPOSAL, NEGOTIATION, OBJECTION_HANDLING, PAYMENT_PENDING, CONVERTED, HUMAN_ESCALATION)',
+        description: 'Actualiza la fase actual de la negociación en el CRM (DISCOVERY, DIAGNOSTIC, PROPOSAL, NEGOTIATION, OBJECTION_HANDLING, HUMAN_ESCALATION). Los estados de pago los define PAYERS',
         parameters: {
           type: 'object',
           properties: {
             etapa: {
               type: 'string',
-              enum: ['DISCOVERY', 'DIAGNOSTIC', 'PROPOSAL', 'NEGOTIATION', 'OBJECTION_HANDLING', 'PAYMENT_PENDING', 'CONVERTED', 'HUMAN_ESCALATION'],
+              enum: ETAPAS_PERMITIDAS_IA,
               description: 'Nueva etapa de la negociación según el avance de la conversación',
             },
             motivo: { type: 'string', description: 'Motivo o resumen del avance de fase' },
@@ -109,22 +112,6 @@ export class AiToolsService {
             modalidad: { type: 'string', description: 'Plataforma (GOOGLE_MEET)' },
           },
           required: ['fecha', 'hora'],
-        },
-      },
-      {
-        name: 'confirm_payment',
-        description: 'Valida y confirma el pago recibido (por Yape, Plin, Transferencia bancaria o Tarjeta). Promueve el prospecto a PAYER, acepta la cotización y pasa la etapa a CONVERTED',
-        parameters: {
-          type: 'object',
-          properties: {
-            montoAbonado: { type: 'number', description: 'Monto abonado por el estudiante' },
-            metodoPago: {
-              type: 'string',
-              enum: ['YAPE', 'PLIN', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
-              description: 'Canal de pago utilizado',
-            },
-            referenciaOperacion: { type: 'string', description: 'Número de operación o constancia' },
-          },
         },
       },
       {
@@ -253,6 +240,9 @@ export class AiToolsService {
 
       case 'update_stage': {
         const etapa = args.etapa;
+        if (!ETAPAS_PERMITIDAS_IA.includes(etapa)) {
+          return { actualizado: false, error: `Etapa no permitida para el agente: ${etapa}` };
+        }
         if (context.conversacionId && etapa) {
           await this.prisma.conversacion.update({
             where: { id: context.conversacionId },
@@ -475,202 +465,16 @@ La pasarela de Culqi te permite pagar fácilmente con el método de tu preferenc
       }
 
       case 'confirm_payment': {
-        const buyerId = context.buyerId || args.buyerId;
-        const buyer = await this.prisma.buyer.findUnique({
-          where: { id: buyerId },
-          include: { lead: true },
-        });
-        if (!buyer) return { error: 'Buyer no encontrado para confirmar pago' };
-
-        // Buscar pago PENDIENTE más reciente o crear uno confirmado
-        let pago = await this.prisma.pago.findFirst({
-          where: { buyerId: buyer.id, estado: 'PENDIENTE' },
-          orderBy: { fechaCreacion: 'desc' },
-          include: { cotizacion: true },
-        });
-
-        const monto = args.montoAbonado ? Number(args.montoAbonado) : (pago ? Number(pago.monto) : 1500);
-        const metodo = args.metodoPago || 'YAPE';
-        const referencia = args.referenciaOperacion || `OP-${Date.now().toString().slice(-6)}`;
-
-        if (!pago) {
-          const servicio = await this.prisma.servicio.findFirst({ where: { activo: true } });
-          const cotizacion = await this.prisma.cotizacion.create({
-            data: {
-              leadId: buyer.lead?.id || buyer.id,
-              servicioId: servicio?.id || '',
-              codigoCotizacion: `COT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-              subtotal: monto,
-              total: monto,
-              cuotas: 1,
-              plazoEntregaDias: 45,
-              fechaExpiracion: new Date(Date.now() + 7 * 24 * 3600 * 1000),
-              estado: 'ACEPTADA',
-            },
-          });
-
-          pago = await this.prisma.pago.create({
-            data: {
-              cotizacionId: cotizacion.id,
-              buyerId: buyer.id,
-              leadId: buyer.lead?.id || null,
-              gatewayProveedor: metodo,
-              monto,
-              moneda: 'PEN',
-              metodoPago: metodo,
-              estado: 'CONFIRMADO',
-              fechaConfirmacion: new Date(),
-              gatewayTransactionId: referencia,
-            },
-            include: { cotizacion: true },
-          });
-        } else {
-          pago = await this.prisma.pago.update({
-            where: { id: pago.id },
-            data: {
-              estado: 'CONFIRMADO',
-              fechaConfirmacion: new Date(),
-              metodoPago: metodo,
-              gatewayTransactionId: referencia,
-            },
-            include: { cotizacion: true },
-          });
-
-          await this.prisma.cotizacion.update({
-            where: { id: pago.cotizacionId },
-            data: { estado: 'ACEPTADA' },
-          });
-        }
-
-        // Promover a PAYER
-        await this.prisma.buyer.update({
-          where: { id: buyer.id },
-          data: { estadoFunnel: 'PAYER' },
-        });
-
-        // Registrar en PAYER si no existe
-        const existingPayer = await this.prisma.payer.findUnique({
-          where: { buyerId: buyer.id },
-        });
-        if (!existingPayer) {
-          await this.prisma.payer.create({
-            data: {
-              buyerId: buyer.id,
-              leadId: buyer.lead?.id || null,
-              primerPagoId: pago.id,
-              montoTotalPagado: pago.monto,
-              metodoPrincipal: metodo,
-              estado: 'ACTIVO',
-            },
-          });
-        }
-
-        // Crear automáticamente el Customer y asignarle su asesor especialista con bitácora
-        try {
-          let asesor = await this.prisma.asesor.findFirst({
-            where: { activo: true },
-            orderBy: { clientesActivos: 'asc' },
-          });
-
-          if (asesor) {
-            await this.prisma.asesor.update({
-              where: { id: asesor.id },
-              data: { clientesActivos: { increment: 1 } },
-            });
-          }
-
-          let customer = await this.prisma.customer.findUnique({ where: { buyerId: buyer.id } });
-          if (!customer) {
-            const payerRecord = await this.prisma.payer.findUnique({ where: { buyerId: buyer.id } });
-            customer = await this.prisma.customer.create({
-              data: {
-                buyerId: buyer.id,
-                leadId: buyer.lead?.id || null,
-                payerId: payerRecord?.id || '',
-                cotizacionId: pago.cotizacionId || '',
-                servicioId: pago.cotizacion?.servicioId || (await this.prisma.servicio.findFirst({ where: { activo: true } }))?.id || '',
-                asesorId: asesor?.id || null,
-                fechaInicioServicio: new Date(),
-                estadoServicio: 'ACTIVO',
-                observaciones: `Servicio iniciado automáticamente tras confirmación de pago por S/ ${pago.monto} (${metodo}).`,
-              },
-            });
-
-            if (asesor) {
-              await this.prisma.asignacionAsesor.create({
-                data: {
-                  customerId: customer.id,
-                  asesorId: asesor.id,
-                  motivo: 'Asignación automática al validar pago en sistema',
-                  asignadoPor: 'SISTEMA_AUTOMATICO',
-                },
-              });
-            }
-
-            const fechaPrimeraSesion = new Date();
-            fechaPrimeraSesion.setDate(fechaPrimeraSesion.getDate() + 3);
-            fechaPrimeraSesion.setHours(17, 0, 0, 0);
-
-            await this.prisma.sesion.create({
-              data: {
-                customerId: customer.id,
-                asesorId: asesor?.id || '',
-                numeroSesion: 1,
-                fechaHoraProgramada: fechaPrimeraSesion,
-                temaTratado: 'Sesión de Inducción, Diagnóstico Metodológico y Cronograma de Tesis',
-                estado: 'PROGRAMADA',
-                enlaceReunion: `https://meet.google.com/inbestiga-tesis-${customer.id.substring(0, 8)}`,
-                observaciones: 'El estudiante debe tener a la mano el avance previo.',
-              },
-            });
-          }
-
-          await this.prisma.buyer.update({
-            where: { id: buyer.id },
-            data: { estadoFunnel: 'CUSTOMER' },
-          });
-        } catch (custErr: any) {
-          this.logger.warn(`Nota al crear Customer desde pago: ${custErr.message}`);
-        }
-
-        // Marcar cualquier otro pago pendiente previo del mismo alumno como EXPIRADO/ABANDONADO
-        await this.prisma.pago.updateMany({
-          where: {
-            buyerId: buyer.id,
-            id: { not: pago.id },
-            estado: 'PENDIENTE',
-          },
-          data: {
-            estado: 'EXPIRADO',
-          },
-        });
-
-        // Actualizar conversación a CONVERTED
-        if (context.conversacionId) {
-          await this.prisma.conversacion.update({
-            where: { id: context.conversacionId },
-            data: { estadoEtapa: 'CONVERTED', fechaUltimaActividad: new Date() },
-          });
-        }
-
-        this.logger.log(`✓ Pago confirmado exitosamente para ${buyer.nombres} ${buyer.apellidos}. Monto: S/ ${pago.monto}, Ref: ${referencia}`);
-
-        const mensajeConfirmacion = `¡Pago de S/ ${pago.monto} recibido y validado con éxito! Tu vacante está formalmente confirmada. Bienvenido a INBESTIGA. Tu asesor especialista asignado se pondrá en contacto para programar la sesión inicial de tu investigación.`;
-
+        // Frontera LEADS/PAYERS: un mensaje del estudiante ("ya pagué") NUNCA acredita un pago,
+        // ni crea PAYER/CUSTOMER. La confirmación llega solo desde PAYERS (webhook de la pasarela).
+        this.logger.warn('Intento de confirm_payment bloqueado: LEADS no confirma pagos.');
         return {
-          exito: true,
-          confirmado: true,
-          nuevaEtapa: 'CONVERTED',
-          estudiante: `${buyer.nombres} ${buyer.apellidos}`,
-          montoConfirmado: Number(pago.monto),
-          metodoPago: metodo,
-          codigoCotizacion: pago.cotizacion?.codigoCotizacion,
-          referencia,
-          mensaje: mensajeConfirmacion,
-          mensajeSugerido: mensajeConfirmacion,
+          exito: false,
+          bloqueado: true,
+          mensajeSugerido:
+            'Gracias por avisarnos. La confirmación del pago la realiza nuestra área de pagos cuando la pasarela valida la transacción; te avisaremos apenas esté verificada.',
         };
       }
-
       case 'escalate_to_human': {
         if (context.conversacionId) {
           await this.prisma.conversacion.update({

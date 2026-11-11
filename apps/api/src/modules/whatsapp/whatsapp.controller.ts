@@ -10,10 +10,13 @@ import {
   Req,
   HttpCode,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Public } from '../auth/auth.decorators';
 import { WhatsAppService } from './whatsapp.service';
 import { NegotiationService } from '../negotiation/negotiation.service';
 
@@ -48,6 +51,7 @@ export class WhatsAppController {
   private readonly procesados = new Map<string, number>();
   /** Cola por chat: los mensajes de un mismo estudiante se atienden en orden. */
   private readonly colas = new Map<string, Promise<unknown>>();
+  private avisoSinFirma = false;
 
   constructor(
     private readonly whatsappService: WhatsAppService,
@@ -68,6 +72,8 @@ export class WhatsAppController {
   }
 
   @Post('webhook')
+  @Public() // autenticado por firma HMAC (X-OpenWA-Signature)
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Receptor de webhooks de OpenWA (message.received, session.status)' })
   handleWebhook(
@@ -117,17 +123,42 @@ export class WhatsAppController {
     return { status: 'accepted' };
   }
 
+  @Get('cuarentena')
+  @ApiOperation({ summary: 'Mensajes entrantes de remitentes no identificados o ambiguos, pendientes de revisión humana' })
+  async cuarentena() {
+    return this.negotiationService.listarCuarentena();
+  }
+
   @Post('simulate-incoming')
-  @ApiOperation({ summary: 'Simula la llegada de un mensaje de WhatsApp para pruebas de demostración en vivo' })
-  async simulateIncoming(@Body() body: { telefono: string; contenido?: string; mensaje?: string; text?: string }) {
+  @ApiOperation({
+    summary: 'Prueba interna: el admin escribe como estudiante (CHAT_WEB_INTERNO, LOCAL_ONLY). No envía nada por WhatsApp.',
+  })
+  async simulateIncoming(
+    @Req() req: Request & { user?: { id: string } },
+    @Body() body: { telefono?: string; buyerId?: string; conversacionId?: string; contenido?: string; mensaje?: string; text?: string },
+  ) {
+    const habilitado = (process.env.WHATSAPP_SIMULATION_ENABLED ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true')) === 'true';
+    if (!habilitado) throw new ForbiddenException('La simulación está deshabilitada en este entorno.');
     const texto = body.contenido || body.mensaje || body.text || '';
-    this.logger.log(`Simulación de mensaje entrante de estudiante: ${body.telefono} -> "${texto}"`);
-    return this.negotiationService.procesarMensajeEstudiante(body.telefono, texto);
+    return this.negotiationService.procesarMensajePrueba({
+      telefono: body.telefono,
+      buyerId: body.buyerId,
+      conversacionId: body.conversacionId,
+      contenido: texto,
+      actorUsuarioId: req.user?.id,
+    });
   }
 
   private verificarFirma(rawBody: Buffer | undefined, signature: string | undefined) {
     const secret = process.env.OPENWA_WEBHOOK_SECRET;
-    if (!secret) return; // sin secreto configurado no se exige firma (solo desarrollo)
+    if (!secret) {
+      // Solo desarrollo: en producción la API no arranca sin secreto (config/env.validation.ts).
+      if (!this.avisoSinFirma) {
+        this.logger.warn('OPENWA_WEBHOOK_SECRET no configurado: los webhooks se aceptan SIN verificar firma (solo desarrollo).');
+        this.avisoSinFirma = true;
+      }
+      return;
+    }
 
     if (!signature || !rawBody) {
       throw new UnauthorizedException('Firma de webhook ausente');

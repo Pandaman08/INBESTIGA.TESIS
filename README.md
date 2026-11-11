@@ -93,7 +93,7 @@ npm run prisma:seed --workspace=apps/api
 
 ### Paso 5: Desplegar los 4 Data Marts Independientes y Cargar Datos
 ```bash
-docker exec -i inbestiga-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Inbestiga2026!StrongPass' -C < infrastructure/sql/datamarts/build_all_datamarts.sql
+docker exec -i -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" inbestiga-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C < infrastructure/sql/datamarts/build_all_datamarts.sql
 ```
 
 ### Paso 6: Iniciar Servidores de Desarrollo o Producción
@@ -127,6 +127,7 @@ Agente leads/
    ```
 3. Inicie la API (`npm run dev:api`). Al arrancar crea la sesión `OPENWA_SESSION_NAME` y registra el webhook automáticamente (o manualmente con `POST /api/v1/whatsapp/setup`).
 4. Vincule el número: escanee el QR desde el dashboard de OpenWA (`http://localhost:2785`) o desde `GET /api/v1/whatsapp/status` (campo `qr`, data URL). Use un **número dedicado**: OpenWA no es la API oficial de Meta y existe riesgo de bloqueo.
+5. Los estudiantes de la semilla son **ficticios** (`@demo.inbestiga.test`): solo reciben WhatsApp si su número está en `WHATSAPP_TEST_ALLOWLIST`. El chat de `/admin/live-chat` es una **prueba interna** y nunca envía por WhatsApp. Detalles en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
 
 Flujo: estudiante escribe → OpenWA → `POST /api/v1/whatsapp/webhook` (firma HMAC verificada) → `NegotiationService` + Agente IA → `send-text` de OpenWA → estudiante.
 
@@ -149,6 +150,8 @@ Flujo: estudiante escribe → OpenWA → `POST /api/v1/whatsapp/webhook` (firma 
 
 ## 5. Credenciales Predeterminadas
 
-* **SQL Server**: Usuario `sa` / Contraseña `Inbestiga2026!StrongPass` / Puerto `1433`
-* **Administrador Web**: `admin@inbestiga.edu.pe` / Contraseña `Admin123*Inbestiga`
+Las credenciales **no** están en el repositorio. Se definen en el `.env` de la raíz (ver [docs/SEGURIDAD.md](docs/SEGURIDAD.md)):
+
+* **SQL Server**: usuario `sa`, contraseña `MSSQL_SA_PASSWORD`, puerto `1433`
+* **Administrador web**: `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (creado por `npm run prisma:seed`; inicia sesión en `http://localhost:3000/login`)
 * **OpenWA API**: Puerto `2785` / Clave: el valor de `OPENWA_API_KEY` en `.env`

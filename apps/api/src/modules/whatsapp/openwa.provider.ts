@@ -21,11 +21,24 @@ export interface SendMessageOptions {
   text: string;
 }
 
+/**
+ * Estado de entrega de un mensaje saliente (columna MENSAJE.estadoEntrega).
+ *  - SENT:       el gateway aceptó el mensaje (201). No confirma la recepción en el teléfono.
+ *  - QUEUED:     el gateway lo encoló (202); se confirmará o fallará después.
+ *  - FAILED:     el transporte falló o lo rechazó. El mensaje NO salió.
+ *  - LOCAL_ONLY: registrado solo en la BD (chat interno, sin consentimiento o número no autorizado).
+ * Nunca se reintenta automáticamente un mensaje FAILED o LOCAL_ONLY.
+ */
+export type EstadoEntrega = 'SENT' | 'QUEUED' | 'FAILED' | 'LOCAL_ONLY';
+
 export interface SendMessageResult {
+  estado: EstadoEntrega;
+  /** true solo si el gateway aceptó el mensaje (SENT o QUEUED). */
   exito: boolean;
-  messageId: string;
-  /** true cuando OpenWA no estaba disponible y el mensaje solo se registró localmente. */
-  simulado?: boolean;
+  messageId?: string;
+  error?: string;
+  /** Segundos sugeridos por OpenWA antes de volver a intentar (429). Informativo: no se reintenta solo. */
+  retryAfterSeconds?: number;
   detalles?: any;
 }
 
@@ -57,16 +70,12 @@ export class OpenWAProvider {
   private readonly client: AxiosInstance;
   private readonly sessionName: string;
   private readonly defaultCountryCode: string;
-  private readonly allowSimulation: boolean;
   private sessionIdCache: string | null = null;
 
   constructor() {
     const baseUrl = (process.env.OPENWA_BASE_URL || 'http://localhost:2785').replace(/\/+$/, '');
     this.sessionName = process.env.OPENWA_SESSION_NAME || 'inbestiga-bot';
     this.defaultCountryCode = process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || '51';
-    // En desarrollo, si OpenWA no responde, se simula el envío para no bloquear demos.
-    // En producción debe estar desactivado para no marcar como "enviado" algo que nunca salió.
-    this.allowSimulation = (process.env.OPENWA_ALLOW_SIMULATION ?? (process.env.NODE_ENV !== 'production' ? 'true' : 'false')) === 'true';
 
     this.client = axios.create({
       baseURL: `${baseUrl}/api`,
@@ -145,38 +154,42 @@ export class OpenWAProvider {
     return 'created';
   }
 
-  /** Envía un mensaje de texto por WhatsApp. */
+  /**
+   * Envía un mensaje de texto por WhatsApp y devuelve el resultado REAL del transporte.
+   * Si OpenWA no responde o rechaza el envío, el estado es FAILED (nunca un éxito simulado).
+   */
   async sendTextMessage(options: SendMessageOptions): Promise<SendMessageResult> {
     const chatId = this.toChatId(options.chatId);
-    this.logger.log(`[OpenWA] Enviando a ${chatId}: "${options.text.substring(0, 60)}..."`);
+    this.logger.log(`[OpenWA] Enviando a ${this.mask(chatId)}`);
 
     try {
       const sessionId = await this.getOrCreateSession();
-      const { data } = await this.client.post(`/sessions/${sessionId}/messages/send-text`, {
+      const res = await this.client.post(`/sessions/${sessionId}/messages/send-text`, {
         chatId,
         text: options.text,
       });
-      this.logger.log(`✓ [OpenWA] Mensaje aceptado por el gateway. ID: ${data?.messageId}`);
-      return { exito: true, messageId: data?.messageId, detalles: data };
+      const estado: EstadoEntrega = res.status === 202 ? 'QUEUED' : 'SENT';
+      this.logger.log(`✓ [OpenWA] ${estado}. ID: ${res.data?.messageId}`);
+      return { estado, exito: true, messageId: res.data?.messageId, detalles: res.data };
     } catch (error: any) {
-      const status = error.response?.status;
-      const errMsg = error.response?.data?.message || error.message;
+      const status: number | undefined = error.response?.status;
+      const errMsg: string = error.response?.data?.message || error.message;
       // 404 = la sesión cacheada ya no existe → olvidarla para recrearla en el próximo intento
       if (status === 404) this.sessionIdCache = null;
-
-      if (this.allowSimulation) {
-        this.logger.warn(`[OpenWA] Envío no completado (${status ?? 'sin respuesta'}: ${errMsg}). Modo simulación: se registra solo en BD.`);
-        return {
-          exito: true,
-          simulado: true,
-          messageId: `msg_wa_sim_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-          detalles: { fallback: true, chatId, error: errMsg },
-        };
-      }
-
-      this.logger.error(`[OpenWA] Falló el envío a ${chatId}: ${status ?? ''} ${errMsg}`);
-      return { exito: false, messageId: '', detalles: { chatId, status, error: errMsg } };
+      this.logger.error(`[OpenWA] FAILED a ${this.mask(chatId)}: ${status ?? 'sin respuesta'} ${errMsg}`);
+      return {
+        estado: 'FAILED',
+        exito: false,
+        error: status ? `HTTP ${status}: ${errMsg}` : `OpenWA no disponible: ${errMsg}`,
+        retryAfterSeconds: error.response?.data?.retryAfterSeconds,
+      };
     }
+  }
+
+  /** Enmascara el número en logs: 51987654321@c.us → 519*****321@c.us */
+  private mask(chatId: string): string {
+    const [id, dom] = chatId.split('@');
+    return id.length > 6 ? `${id.slice(0, 3)}*****${id.slice(-3)}@${dom}` : chatId;
   }
 
   /** Estado de la sesión y, si corresponde, el QR (data URL) para vincular el número. */

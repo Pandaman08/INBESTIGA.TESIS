@@ -1,18 +1,25 @@
 import { PrismaClient } from '@prisma/client';
+import { esBuyerFicticio } from '../src/common/contact-policy';
 
 const prisma = new PrismaClient();
 
-export async function deleteTestUser(identifier: string = '926619777') {
-  console.log(`Buscando registros de prueba para: ${identifier}...`);
+/**
+ * Elimina por completo a UN estudiante FICTICIO (todas sus fases) para repetir demos.
+ * Uso: npx ts-node scripts/delete-test-user.ts <email@demo.inbestiga.test>
+ *
+ * Solo acepta el email exacto de un BUYER con dominio de prueba (LEADS_SANDBOX_EMAIL_DOMAINS).
+ * Nunca borra registros reales ni busca por coincidencias parciales.
+ */
+export async function deleteTestUser(email: string) {
+  if (!email || !esBuyerFicticio({ email })) {
+    throw new Error('Indique el email exacto de un estudiante FICTICIO (p. ej. alguien@demo.inbestiga.test).');
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('No se ejecuta con NODE_ENV=production.');
+  }
 
   const buyers = await prisma.buyer.findMany({
-    where: {
-      OR: [
-        { whatsapp: { contains: identifier } },
-        { email: { contains: 'pandaman' } },
-        { nombres: { contains: 'Luis Josmell' } },
-      ],
-    },
+    where: { email },
     include: {
       lead: {
         include: {
@@ -78,8 +85,10 @@ export async function deleteTestUser(identifier: string = '926619777') {
 }
 
 if (require.main === module) {
-  const arg = process.argv[2] || '926619777';
-  deleteTestUser(arg)
-    .catch((e) => console.error('Error durante la eliminación:', e))
+  deleteTestUser(process.argv[2])
+    .catch((e) => {
+      console.error('Error durante la eliminación:', e.message);
+      process.exitCode = 1;
+    })
     .finally(() => prisma.$disconnect());
 }

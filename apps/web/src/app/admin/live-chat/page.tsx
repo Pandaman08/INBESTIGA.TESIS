@@ -83,14 +83,15 @@ function LiveChatContent() {
 
   const handleEnviarMensajeEstudiante = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !conversacionData?.buyer?.whatsapp) return;
+    if (!inputMessage.trim() || !conversacionData?.id) return;
 
     setSending(true);
     const textToSend = inputMessage;
     setInputMessage('');
 
     try {
-      await api.enviarMensajeNegociacion(conversacionData.buyer.whatsapp, textToSend);
+      // Modo prueba interna: el admin escribe como estudiante; nada sale por WhatsApp.
+      await api.enviarMensajePrueba(conversacionData.id, textToSend);
       await cargarConversacionActiva(conversacionData.id);
     } catch (err: any) {
       alert(`Error al enviar mensaje: ${err.message}`);
@@ -130,7 +131,7 @@ function LiveChatContent() {
       text: 'Perfecto, acepto la propuesta de 2 cuotas. Por favor envíame el enlace o cuentas para realizar el pago ahora mismo.',
     },
     {
-      label: '4. Confirmación Pago (Yape)',
+      label: '4. Aviso de pago (LEADS no lo confirma)',
       text: 'Listo, ya te transferí el monto acordado por Yape. Mi código de operación es 582910. ¿Me confirmas la activación?',
     },
   ];
@@ -331,11 +332,21 @@ function LiveChatContent() {
                           }`}
                         >
                           <div className="flex items-center justify-between text-[10px] opacity-75 font-semibold gap-2">
-                            <span className="truncate">{isClient ? 'Estudiante (WhatsApp)' : 'Agente IA Negociador'}</span>
+                            <span className="truncate">{etiquetaRemitente(m)}</span>
                             <span className="shrink-0">{new Date(m.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
 
                           <p className="leading-relaxed whitespace-pre-wrap break-words">{m.contenido}</p>
+                          {!isClient && m.estadoEntrega && (
+                            <span
+                              className={`inline-block text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                                m.estadoEntrega === 'FAILED' ? 'bg-red-500/90 text-white' : 'bg-white/20 text-white'
+                              }`}
+                              title={ESTADO_ENTREGA_DESC[m.estadoEntrega] || m.estadoEntrega}
+                            >
+                              {ESTADO_ENTREGA_LABEL[m.estadoEntrega] || m.estadoEntrega}
+                            </span>
+                          )}
 
                           {/* Quick Checkout Action Card if Payment Link */}
                           {isPaymentLink && (
@@ -382,7 +393,7 @@ function LiveChatContent() {
                 <form onSubmit={handleEnviarMensajeEstudiante} className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Escribe como estudiante (simula respuesta en WhatsApp)..."
+                    placeholder="Prueba interna: escribe como estudiante (no se envía por WhatsApp)..."
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -461,6 +472,28 @@ function LiveChatContent() {
       )}
     </div>
   );
+}
+
+const ESTADO_ENTREGA_LABEL: Record<string, string> = {
+  SENT: 'Enviado por WhatsApp',
+  QUEUED: 'En cola de WhatsApp',
+  FAILED: 'No enviado (error)',
+  LOCAL_ONLY: 'Solo registrado (no enviado)',
+};
+
+const ESTADO_ENTREGA_DESC: Record<string, string> = {
+  SENT: 'El gateway OpenWA aceptó el mensaje. No confirma que el estudiante lo haya leído.',
+  QUEUED: 'OpenWA encoló el mensaje; aún no se confirma su salida.',
+  FAILED: 'El envío por WhatsApp falló. El mensaje no salió y no se reintenta automáticamente.',
+  LOCAL_ONLY: 'Guardado solo en el sistema: chat de prueba interno, sin consentimiento o número no autorizado.',
+};
+
+function etiquetaRemitente(m: any): string {
+  if (m.direccion === 'INCOMING') {
+    return m.remitente === 'ADMIN_TEST' ? 'Prueba interna (admin como estudiante)' : 'Estudiante (WhatsApp)';
+  }
+  if (m.remitente === 'ASESOR_HUMANO') return 'Asesor';
+  return 'Agente IA Negociador';
 }
 
 export default function LiveChatPage() {

@@ -1,3 +1,5 @@
+import { Public } from '../auth/auth.decorators';
+import { Throttle } from '@nestjs/throttler';
 import { Controller, Post, Get, Param, Body, Headers, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
@@ -27,12 +29,14 @@ export class PaymentsController {
   }
 
   @Get('cotizacion/:id')
+  @Public() // checkout del estudiante (id UUID no adivinable)
   @ApiOperation({ summary: 'Obtener datos de la cotización para la pantalla de Checkout' })
   async getCotizacion(@Param('id') id: string) {
     return this.paymentsService.getCotizacion(id);
   }
 
   @Get('webhook')
+  @Public()
   @ApiOperation({ summary: 'Verificación de estado del Webhook' })
   async checkWebhook() {
     return {
@@ -45,12 +49,15 @@ export class PaymentsController {
   }
 
   @Post('webhook')
+  @Public() // la pasarela valida su propia firma (fase PAYERS)
   @ApiOperation({ summary: 'Webhook oficial de la pasarela de pagos (Culqi / Stripe)' })
   async handleWebhook(@Body() payload: any, @Headers('stripe-signature') signature?: string) {
     return this.paymentsService.procesarWebhook(payload, signature);
   }
 
   @Post('checkout/procesar')
+  @Public() // checkout del estudiante
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Procesar pago desde la interfaz web de Checkout con Yape directo (Culqi) o Tarjeta' })
   async procesarCheckout(
     @Body()

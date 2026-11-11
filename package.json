@@ -13,7 +13,7 @@
     "prisma:generate": "npm run prisma:generate --workspace=apps/api",
     "prisma:push": "npm run prisma:push --workspace=apps/api",
     "prisma:seed": "npm run prisma:seed --workspace=apps/api",
-    "db:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "db:up": "docker compose --env-file .env -f infrastructure/docker/docker-compose.yml up -d",
     "openwa:up": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml up -d --build",
     "openwa:down": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml down",
     "openwa:logs": "docker compose --env-file .env -f infrastructure/docker/docker-compose.openwa.yml logs -f openwa"

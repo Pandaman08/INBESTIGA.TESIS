@@ -710,13 +710,9 @@ END
 GO
 
 -- 7.7. Usuario Administrador Inicial
-IF NOT EXISTS (SELECT 1 FROM dbo.USUARIO WHERE username = 'admin')
-BEGIN
-    INSERT INTO dbo.USUARIO (id, username, email, passwordHash, rol, activo) VALUES
-    ('usr-admin-001', 'admin', 'admin@inbestiga.pe', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMIN', 1);
-    PRINT '✓ Usuario Administrador creado (admin / password).';
-END
-GO
+-- Retirado: este script creaba un administrador con contraseña conocida ("password").
+-- El administrador se crea con `npm run prisma:seed`, que exige SEED_ADMIN_EMAIL y
+-- SEED_ADMIN_PASSWORD en el entorno (ver docs/SEGURIDAD.md).
 
 PRINT '=============================================================================';
 PRINT '✓ DESPLIEGUE COMPLETO (DDL + SEED DATA) DE inbestiga_db CULMINADO CON ÉXITO.';

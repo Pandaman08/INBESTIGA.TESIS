@@ -2,6 +2,8 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { OpenWAProvider, SendMessageResult } from './openwa.provider';
 import { PrismaService } from '../../database/prisma.service';
 
+export type CanalMensaje = 'WHATSAPP' | 'CHAT_WEB_INTERNO';
+
 @Injectable()
 export class WhatsAppService implements OnApplicationBootstrap {
   private readonly logger = new Logger(WhatsAppService.name);
@@ -38,7 +40,11 @@ export class WhatsAppService implements OnApplicationBootstrap {
   }
 
   /**
-   * Envía mensaje y lo persiste en la tabla MENSAJE
+   * Envía (o registra) un mensaje saliente y lo persiste en MENSAJE con su estado REAL.
+   *
+   * - canal CHAT_WEB_INTERNO, o `motivoLocal` definido → no se toca WhatsApp: LOCAL_ONLY.
+   * - canal WHATSAPP → se intenta el envío por OpenWA: SENT / QUEUED / FAILED según el gateway.
+   * Un mensaje FAILED o LOCAL_ONLY nunca se reenvía automáticamente.
    */
   async enviarMensaje(params: {
     conversacionId: string;
@@ -47,22 +53,37 @@ export class WhatsAppService implements OnApplicationBootstrap {
     tipoMensaje?: string;
     remitente?: string;
     metadata?: any;
+    canal?: CanalMensaje;
+    /** Si se indica, el mensaje no se envía y queda LOCAL_ONLY con este motivo (p. ej. SIN_CONSENTIMIENTO). */
+    motivoLocal?: string;
   }): Promise<SendMessageResult> {
-    const { conversacionId, telefono, contenido, tipoMensaje = 'TEXT', remitente = 'AGENTE_IA', metadata } = params;
+    const {
+      conversacionId,
+      telefono,
+      contenido,
+      tipoMensaje = 'TEXT',
+      remitente = 'AGENTE_IA',
+      metadata,
+      canal = 'WHATSAPP',
+      motivoLocal,
+    } = params;
 
-    const result = await this.openWA.sendTextMessage({
-      chatId: telefono,
-      text: contenido,
-    });
+    let result: SendMessageResult;
+    if (canal === 'CHAT_WEB_INTERNO' || motivoLocal) {
+      result = { estado: 'LOCAL_ONLY', exito: false, error: motivoLocal };
+    } else {
+      result = await this.openWA.sendTextMessage({ chatId: telefono, text: contenido });
+    }
 
     const metaToSave = {
-      ...(typeof metadata === 'object' ? metadata : {}),
-      waMessageId: result.messageId,
-      sentTo: telefono,
-      ...(result.simulado ? { simulado: true } : {}),
+      ...(typeof metadata === 'object' && metadata ? metadata : {}),
+      canal,
+      ...(result.messageId ? { waMessageId: result.messageId } : {}),
+      ...(canal === 'WHATSAPP' && !motivoLocal ? { sentTo: telefono } : {}),
+      ...(result.error ? { errorEntrega: result.error } : {}),
+      ...(motivoLocal ? { motivoLocal } : {}),
     };
 
-    // Registrar en BD
     await this.prisma.mensaje.create({
       data: {
         conversacionId,
@@ -70,7 +91,7 @@ export class WhatsAppService implements OnApplicationBootstrap {
         remitente,
         contenido,
         tipoMensaje,
-        estadoEntrega: result.exito ? 'SENT' : 'FAILED',
+        estadoEntrega: result.estado,
         metadata: JSON.stringify(metaToSave),
       },
     });

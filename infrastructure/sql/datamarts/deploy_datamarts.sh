@@ -8,7 +8,8 @@
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SQLCMD="docker exec -i inbestiga-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Inbestiga2026!StrongPass -C"
+: "${MSSQL_SA_PASSWORD:?Exporte MSSQL_SA_PASSWORD antes de ejecutar este script}"
+SQLCMD="docker exec -i -e SQLCMDPASSWORD=$MSSQL_SA_PASSWORD inbestiga-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C"
 
 echo "============================================================================="
 echo ">> DESPLEGANDO DATA MARTS DE INBESTIGA EN SQL SERVER"

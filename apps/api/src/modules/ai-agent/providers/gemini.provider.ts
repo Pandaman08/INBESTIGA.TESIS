@@ -103,35 +103,18 @@ export class GeminiProvider implements AIProvider {
   generarRespuestaLocal(mensajes: ChatMessage[]): AIProviderResponse {
     const ultimoMensaje = mensajes[mensajes.length - 1]?.content.toLowerCase() || '';
 
-    // Detección de confirmación de pago realizado
+    // Aviso de pago realizado: LEADS no confirma pagos (lo valida PAYERS en la pasarela).
     if (
       ultimoMensaje.includes('ya pag') ||
       ultimoMensaje.includes('he pag') ||
       ultimoMensaje.includes('acabo de pag') ||
       ultimoMensaje.includes('ya transfer') ||
-      ultimoMensaje.includes('he transfer') ||
-      ultimoMensaje.includes('ya abon') ||
-      ultimoMensaje.includes('ya depos') ||
-      ultimoMensaje.includes('ya yap') ||
-      ultimoMensaje.includes('constancia') ||
-      ultimoMensaje.includes('comprobante') ||
-      ultimoMensaje.includes('voucher') ||
-      ultimoMensaje.includes('captura') ||
-      ultimoMensaje.includes('operación') ||
-      ultimoMensaje.includes('operacion')
+      ultimoMensaje.includes('ya yap')
     ) {
       return {
-        content: '',
-        toolCalls: [
-          {
-            id: `call_${Date.now()}`,
-            name: 'confirm_payment',
-            arguments: {
-              metodoPago: ultimoMensaje.includes('yap') ? 'YAPE' : ultimoMensaje.includes('plin') ? 'PLIN' : 'TRANSFERENCIA',
-              referenciaOperacion: `OP-${Math.floor(100000 + Math.random() * 900000)}`,
-            },
-          },
-        ],
+        content:
+          'Gracias por avisarnos. La confirmación del pago la realiza nuestra área de pagos cuando la pasarela valida la transacción; te avisaremos apenas esté verificada. Mientras tanto, ¿hay algo de tu investigación que quieras revisar?',
+        toolCalls: [],
       };
     }
 

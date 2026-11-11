@@ -1,9 +1,13 @@
+import { clearToken, getToken, redirectToLogin } from './auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const token = getToken();
   const headers = {
     'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };
 
@@ -15,6 +19,11 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     });
 
     const data = await res.json().catch(() => null);
+
+    if (res.status === 401 && typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      clearToken();
+      redirectToLogin();
+    }
 
     if (!res.ok) {
       throw new Error(data?.message || `Error en la petición: ${res.status} ${res.statusText}`);
@@ -28,6 +37,10 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 }
 
 export const api = {
+  // Autenticación
+  login: (email: string, password: string) =>
+    fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
   // Buyers & Formulario
   getBuyers: (params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -47,10 +60,11 @@ export const api = {
       method: 'POST',
     }),
   getConversacion: (id: string) => fetchApi(`/negotiation/conversacion/${id}`),
-  enviarMensajeNegociacion: (telefono: string, contenido: string) =>
+  /** Chat de prueba interno (CHAT_WEB_INTERNO): no envía nada por WhatsApp. */
+  enviarMensajePrueba: (conversacionId: string, contenido: string) =>
     fetchApi('/negotiation/enviar-mensaje', {
       method: 'POST',
-      body: JSON.stringify({ telefono, contenido }),
+      body: JSON.stringify({ conversacionId, contenido }),
     }),
   limpiarConversacion: (id: string) =>
     fetchApi(`/negotiation/conversacion/${id}/limpiar`, {

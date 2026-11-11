@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { validateEnv } from './config/env.validation';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
@@ -20,7 +24,9 @@ import { AlertsModule } from './modules/alerts/alerts.module';
   imports: [
     // apps/api/.env tiene prioridad; el .env de la raíz del monorepo completa lo que falte
     // (allí viven OPENWA_API_KEY / OPENWA_WEBHOOK_SECRET compartidos con el compose de OpenWA).
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'], validate: validateEnv }),
+    // Límite general por IP; las rutas sensibles (login, formulario, webhooks) declaran el suyo.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     DatabaseModule,
     AuthModule,
     ScoringModule,
@@ -36,6 +42,11 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     EtlModule,
     DashboardModule,
     AlertsModule,
+  ],
+  providers: [
+    // Orden: primero el límite de peticiones, luego autenticación/roles.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

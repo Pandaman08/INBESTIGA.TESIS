@@ -217,7 +217,7 @@ DIRECTRICES COMERCIALES Y DE NEGOCIACIÓN DE INBESTIGA.TESIS:
      * En tu mensaje, da ÚNICAMENTE la opción de la pasarela oficial de CULQI (https://express.culqi.com/pago/1E696A426C).
      * Explícale al estudiante que básicamente Culqi cuenta con una pasarela de pago integral y segura que acepta diferentes tipos de pago en un solo lugar: Yape directo, tarjetas de débito o crédito (Visa, Mastercard, AMEX) y PagoEfectivo.
      * Queda estrictamente PROHIBIDO mencionar o proporcionar cuentas bancarias (BCP, BBVA, Interbank) o números telefónicos personales para transferencias directas. Culqi es el único medio y pasarela oficial de pago de INBESTIGA.
-   - FASE CONVERTED: Cuando el estudiante te diga que ya realizó el pago, que ya transfirió o envíe constancia/operación, invoca OBLIGATORIAMENTE la herramienta "confirm_payment" para verificar el abono, cerrar la venta y felicitarlo dándole la bienvenida oficial.
+   - PAGOS: Tú NO confirmas pagos. Si el estudiante dice que ya pagó, agradece y explica que el área de pagos lo confirmará cuando la pasarela valide la transacción. Nunca digas que un pago fue validado.
 4. NUNCA respondas con formatos de código JSON crudo ni digas "he ejecutado la herramienta". Habla siempre como un asesor humano senior de INBESTIGA.
 5. NUNCA dupliques el mismo saludo, párrafo o enlace en un solo mensaje. Redacta un único mensaje coherente, fluido y directo.`;
 
@@ -260,8 +260,6 @@ DIRECTRICES COMERCIALES Y DE NEGOCIACIÓN DE INBESTIGA.TESIS:
         etapaNueva = 'NEGOTIATION';
       } else if (toolCall.name === 'create_payment_request') {
         etapaNueva = 'PAYMENT_PENDING';
-      } else if (toolCall.name === 'confirm_payment') {
-        etapaNueva = 'CONVERTED';
       } else if (toolCall.name === 'record_objection') {
         etapaNueva = 'OBJECTION_HANDLING';
       } else if (toolCall.name === 'escalate_to_human') {
@@ -287,9 +285,9 @@ Como Asesor Especialista de INBESTIGA.TESIS, redacta tu respuesta directa para W
       ];
 
       try {
-        if (toolCall.name === 'confirm_payment') {
-          // Si el estudiante pagó, NUNCA sobreescribir con textos genéricos ni generar bucle
-          respuestaFinal = toolResult?.mensajeSugerido || toolResult?.mensaje || '¡Pago recibido y validado con éxito! Tu vacante está formalmente confirmada. Bienvenido a INBESTIGA. Tu asesor especialista asignado se pondrá en contacto para programar la sesión inicial de tu investigación.';
+        if (toolResult?.bloqueado) {
+          // Herramienta bloqueada por reglas de negocio: usar el texto seguro del backend.
+          respuestaFinal = toolResult.mensajeSugerido;
         } else {
           const segundaRespuesta = await this.ejecutarInferenciaConFailover(followUpMessages, [], 0.7, modelo, proveedorNombre);
           if (
@@ -332,8 +330,6 @@ Como Asesor Especialista de INBESTIGA.TESIS, redacta tu respuesta directa para W
             ? `¡Coordinación confirmada! Tu sesión de diagnóstico quedó programada para el ${toolCall.arguments?.fecha || 'próximo turno'} a las ${toolCall.arguments?.hora || 'hora acordada'}. Nos conectaremos mediante: ${toolResult.meetLink}`
             : toolCall.name === 'create_payment_request'
             ? `¡Excelente! Hemos formalizado tu cotización oficial por S/ ${toolResult.total || 2200}. Puedes realizar tu pago seguro aquí: ${toolResult.checkoutUrl}`
-            : toolCall.name === 'confirm_payment'
-            ? `¡Pago validado exitosamente! Bienvenido a INBESTIGA. Tu asesor especialista asignado se estará comunicando contigo.`
             : 'En INBESTIGA contamos con especialistas para acompañarte en tu investigación. ¿En qué aspecto deseas que profundicemos?');
       }
     }

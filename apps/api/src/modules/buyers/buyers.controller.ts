@@ -1,3 +1,5 @@
+import { Public } from '../auth/auth.decorators';
+import { Throttle } from '@nestjs/throttler';
 import { Controller, Get, Post, Body, Param, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { BuyersService } from './buyers.service';
@@ -30,6 +32,7 @@ export class BuyersController {
   }
 
   @Get('catalogos')
+  @Public()
   @ApiOperation({ summary: 'Obtener catálogos de universidades y carreras para el formulario' })
   async getCatalogos() {
     return this.buyersService.getCatalogos();
@@ -42,6 +45,8 @@ export class BuyersController {
   }
 
   @Post('formulario')
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Registrar un prospecto desde el formulario público de captación' })
   async createFromForm(@Body() dto: CreateBuyerFormDto, @Req() req: Request) {
     const ip = req.ip || req.socket.remoteAddress;

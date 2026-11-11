@@ -4,6 +4,16 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  // El seed VACÍA todas las tablas antes de cargar datos de demostración.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('El seed borra toda la base de datos: no se ejecuta con NODE_ENV=production.');
+  }
+  // Credenciales iniciales desde el entorno: nunca contraseñas fijas en el repositorio.
+  const adminEmail = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword || adminPassword.length < 12) {
+    throw new Error('Defina SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD (mínimo 12 caracteres) antes de ejecutar el seed.');
+  }
   console.log('================================================================');
   console.log('--- INBESTIGA.TESIS: Iniciando Seed Completo y Validado ---');
   console.log('================================================================');
@@ -43,11 +53,11 @@ async function main() {
 
   // 2. USUARIOS
   console.log('2. Registrando usuarios del sistema...');
-  const passwordHash = await bcrypt.hash('Admin123*Inbestiga', 10);
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
   const admin = await prisma.usuario.create({
     data: {
       username: 'admin',
-      email: 'admin@inbestiga.edu.pe',
+      email: adminEmail,
       passwordHash,
       rol: 'ADMIN',
       activo: true,
@@ -60,10 +70,10 @@ async function main() {
       email: 'asesor.sistemas@inbestiga.edu.pe',
       passwordHash,
       rol: 'ASESOR',
-      activo: true,
+      activo: false, // cuenta de ejemplo deshabilitada (comparte la contraseña del admin)
     },
   });
-  console.log('✓ Usuarios creados: admin@inbestiga.edu.pe, asesor.sistemas@inbestiga.edu.pe');
+  console.log(`✓ Usuarios creados: ${adminEmail} (ADMIN), asesor.sistemas@inbestiga.edu.pe (ASESOR, inactivo)`);
 
   // 3. UBICACIONES
   console.log('3. Registrando ubicaciones geográficas...');
@@ -457,7 +467,7 @@ REGLAS ESTRICTAS:
       nombres: 'Ana Lucía',
       apellidos: 'Pérez Mendoza',
       whatsapp: '51949123456',
-      email: 'ana.perez.unt@gmail.com',
+      email: 'ana.perez.unt@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carSistemasUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -515,7 +525,7 @@ REGLAS ESTRICTAS:
         nombres: 'Ana Lucía',
         apellidos: 'Pérez Mendoza',
         whatsapp: '51949123456',
-        email: 'ana.perez.unt@gmail.com',
+        email: 'ana.perez.unt@demo.inbestiga.test',
         universidad: 'Universidad Nacional de Trujillo',
         carrera: 'Ingeniería de Sistemas',
         ciclo: '10mo ciclo',
@@ -566,7 +576,7 @@ REGLAS ESTRICTAS:
       nombres: 'Carlos Alberto',
       apellidos: 'Ruiz Salinas',
       whatsapp: '51948765432',
-      email: 'cruiz.ind@ucv.edu.pe',
+      email: 'cruiz.ind@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carIndustrialUCV.id,
       ubicacionId: ubiVictorLarco.id,
@@ -707,7 +717,7 @@ REGLAS ESTRICTAS:
       nombres: 'Valeria Sofía',
       apellidos: 'Morales Castro',
       whatsapp: '51947112233',
-      email: 'vmorales@upao.edu.pe',
+      email: 'vmorales@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carDerechoUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -808,7 +818,7 @@ REGLAS ESTRICTAS:
       nombres: 'Diego Armando',
       apellidos: 'García Polo',
       whatsapp: '51945112244',
-      email: 'dgarcia@uni.edu.pe',
+      email: 'dgarcia@demo.inbestiga.test',
       universidadId: uni.id,
       carreraId: carSistemasUNI.id,
       ubicacionId: ubiLimaLosOlivos.id,
@@ -827,7 +837,7 @@ REGLAS ESTRICTAS:
       nombres: 'Fiorella Belén',
       apellidos: 'Herrera Cruz',
       whatsapp: '51943223355',
-      email: 'fherrera@pucp.edu.pe',
+      email: 'fherrera@demo.inbestiga.test',
       universidadId: pucp.id,
       carreraId: carIndustrialPUCP.id,
       ubicacionId: ubiLimaSanIsidro.id,
@@ -846,7 +856,7 @@ REGLAS ESTRICTAS:
       nombres: 'Jorge Luis',
       apellidos: 'Chávez Rivas',
       whatsapp: '51942334466',
-      email: 'jchavez@unmsm.edu.pe',
+      email: 'jchavez@demo.inbestiga.test',
       universidadId: unmsm.id,
       carreraId: carEconomiaUNMSM.id,
       ubicacionId: ubiLimaSanIsidro.id,
@@ -865,7 +875,7 @@ REGLAS ESTRICTAS:
       nombres: 'Claudia Vanessa',
       apellidos: 'Salazar Benites',
       whatsapp: '51941445577',
-      email: 'csalazar@ucv.edu.pe',
+      email: 'csalazar@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carPsicologiaUCV.id,
       ubicacionId: ubiTrujillo.id,
@@ -884,7 +894,7 @@ REGLAS ESTRICTAS:
       nombres: 'Guillermo Manuel',
       apellidos: 'Vargas Silva',
       whatsapp: '51940556688',
-      email: 'gvargas@unt.edu.pe',
+      email: 'gvargas@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carContabilidadUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -903,7 +913,7 @@ REGLAS ESTRICTAS:
       nombres: 'Luciana Milagros',
       apellidos: 'Paz Soldán',
       whatsapp: '51939667799',
-      email: 'lpaz@upao.edu.pe',
+      email: 'lpaz@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carMedicinaUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -922,7 +932,7 @@ REGLAS ESTRICTAS:
       nombres: 'Renato Alonso',
       apellidos: 'Ríos Paredes',
       whatsapp: '51938778800',
-      email: 'rrios@ucv.edu.pe',
+      email: 'rrios@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carCivilUCV.id,
       ubicacionId: ubiChiclayo.id,
@@ -941,7 +951,7 @@ REGLAS ESTRICTAS:
       nombres: 'Estefany Rocío',
       apellidos: 'Vega Quispe',
       whatsapp: '51937889911',
-      email: 'evega@unt.edu.pe',
+      email: 'evega@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carEnfermeriaUNT.id,
       ubicacionId: ubiHuanchaco.id,
@@ -959,7 +969,7 @@ REGLAS ESTRICTAS:
       nombres: 'Alonso Gabriel',
       apellidos: 'Bravo Carranza',
       whatsapp: '51936990022',
-      email: 'abravo@pucp.edu.pe',
+      email: 'abravo@demo.inbestiga.test',
       universidadId: pucp.id,
       carreraId: carDerechoUPAO.id, // area DERECHO
       ubicacionId: ubiLimaSanIsidro.id,
@@ -1043,7 +1053,7 @@ REGLAS ESTRICTAS:
       nombres: 'Pedro Miguel',
       apellidos: 'Soto Vargas',
       whatsapp: '51921001122',
-      email: 'psoto@upao.edu.pe',
+      email: 'psoto@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carDerechoUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -1060,7 +1070,7 @@ REGLAS ESTRICTAS:
       nombres: 'Karla Jimena',
       apellidos: 'Mendoza León',
       whatsapp: '51922112233',
-      email: 'kmendoza@ucv.edu.pe',
+      email: 'kmendoza@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carIndustrialUCV.id,
       ubicacionId: ubiVictorLarco.id,
@@ -1077,7 +1087,7 @@ REGLAS ESTRICTAS:
       nombres: 'Christian Paul',
       apellidos: 'Navarro Rojas',
       whatsapp: '51923223344',
-      email: 'cnavarro@unt.edu.pe',
+      email: 'cnavarro@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carSistemasUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -1094,7 +1104,7 @@ REGLAS ESTRICTAS:
       nombres: 'Brenda Lucía',
       apellidos: 'Flores Terrones',
       whatsapp: '51924334455',
-      email: 'bflores@pucp.edu.pe',
+      email: 'bflores@demo.inbestiga.test',
       universidadId: pucp.id,
       carreraId: carIndustrialPUCP.id,
       ubicacionId: ubiLimaSanIsidro.id,
@@ -1111,7 +1121,7 @@ REGLAS ESTRICTAS:
       nombres: 'Gonzalo David',
       apellidos: 'Iparraguirre Cruz',
       whatsapp: '51925445566',
-      email: 'giparraguirre@unmsm.edu.pe',
+      email: 'giparraguirre@demo.inbestiga.test',
       universidadId: unmsm.id,
       carreraId: carEconomiaUNMSM.id,
       ubicacionId: ubiLimaLosOlivos.id,
@@ -1128,7 +1138,7 @@ REGLAS ESTRICTAS:
       nombres: 'Diana Carolina',
       apellidos: 'Zapata Morales',
       whatsapp: '51926556677',
-      email: 'dzapata@upao.edu.pe',
+      email: 'dzapata@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carAdminUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -1145,7 +1155,7 @@ REGLAS ESTRICTAS:
       nombres: 'Martín Eduardo',
       apellidos: 'Cabrera Ortiz',
       whatsapp: '51927667788',
-      email: 'mcabrera@unt.edu.pe',
+      email: 'mcabrera@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carContabilidadUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -1162,7 +1172,7 @@ REGLAS ESTRICTAS:
       nombres: 'Vanessa Stephanie',
       apellidos: 'Guerrero Luján',
       whatsapp: '51928778899',
-      email: 'vguerrero@ucv.edu.pe',
+      email: 'vguerrero@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carPsicologiaUCV.id,
       ubicacionId: ubiArequipa.id,
@@ -1179,7 +1189,7 @@ REGLAS ESTRICTAS:
       nombres: 'José Fernando',
       apellidos: 'Peralta Tapia',
       whatsapp: '51929889900',
-      email: 'jperalta@uni.edu.pe',
+      email: 'jperalta@demo.inbestiga.test',
       universidadId: uni.id,
       carreraId: carSistemasUNI.id,
       ubicacionId: ubiLimaLosOlivos.id,
@@ -1196,7 +1206,7 @@ REGLAS ESTRICTAS:
       nombres: 'Silvia Cristina',
       apellidos: 'Reyes Sandoval',
       whatsapp: '51930990011',
-      email: 'sreyes@unt.edu.pe',
+      email: 'sreyes@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carEnfermeriaUNT.id,
       ubicacionId: ubiHuanchaco.id,
@@ -1257,7 +1267,7 @@ REGLAS ESTRICTAS:
       nombres: 'César Augusto',
       apellidos: 'Villarreal Benítez',
       whatsapp: '51911112233',
-      email: 'cvillarreal@unt.edu.pe',
+      email: 'cvillarreal@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carSistemasUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -1280,7 +1290,7 @@ REGLAS ESTRICTAS:
       nombres: 'Katherine Gisell',
       apellidos: 'Palacios Montoya',
       whatsapp: '51912223344',
-      email: 'kpalacios@ucv.edu.pe',
+      email: 'kpalacios@demo.inbestiga.test',
       universidadId: ucv.id,
       carreraId: carIndustrialUCV.id,
       ubicacionId: ubiVictorLarco.id,
@@ -1303,7 +1313,7 @@ REGLAS ESTRICTAS:
       nombres: 'Rodrigo Javier',
       apellidos: 'Lecca Santillán',
       whatsapp: '51913334455',
-      email: 'rlecca@upao.edu.pe',
+      email: 'rlecca@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carDerechoUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -1326,7 +1336,7 @@ REGLAS ESTRICTAS:
       nombres: 'Miriam Elizabeth',
       apellidos: 'Chirinos Saavedra',
       whatsapp: '51914445566',
-      email: 'mchirinos@unmsm.edu.pe',
+      email: 'mchirinos@demo.inbestiga.test',
       universidadId: unmsm.id,
       carreraId: carEconomiaUNMSM.id,
       ubicacionId: ubiLimaSanIsidro.id,
@@ -1445,7 +1455,7 @@ REGLAS ESTRICTAS:
       nombres: 'María Elena',
       apellidos: 'Castillo Vega',
       whatsapp: '51901112233',
-      email: 'mcastillo@unmsm.edu.pe',
+      email: 'mcastillo@demo.inbestiga.test',
       universidadId: unmsm.id,
       carreraId: carMedicinaUNMSM.id,
       ubicacionId: ubiLimaSanIsidro.id,
@@ -1470,7 +1480,7 @@ REGLAS ESTRICTAS:
       nombres: 'Álvaro Sebastián',
       apellidos: 'Gutiérrez Cerna',
       whatsapp: '51902223344',
-      email: 'agutierrez@unt.edu.pe',
+      email: 'agutierrez@demo.inbestiga.test',
       universidadId: unt.id,
       carreraId: carSistemasUNT.id,
       ubicacionId: ubiTrujillo.id,
@@ -1495,7 +1505,7 @@ REGLAS ESTRICTAS:
       nombres: 'Gabriela Alejandra',
       apellidos: 'Paz Soldán Núñez',
       whatsapp: '51903334455',
-      email: 'gpaz@upao.edu.pe',
+      email: 'gpaz@demo.inbestiga.test',
       universidadId: upao.id,
       carreraId: carMedicinaUPAO.id,
       ubicacionId: ubiTrujillo.id,
@@ -1520,7 +1530,7 @@ REGLAS ESTRICTAS:
       nombres: 'Marco Antonio',
       apellidos: 'Bocanegra Tirado',
       whatsapp: '51904445566',
-      email: 'mbocanegra@uni.edu.pe',
+      email: 'mbocanegra@demo.inbestiga.test',
       universidadId: uni.id,
       carreraId: carSistemasUNI.id,
       ubicacionId: ubiLimaLosOlivos.id,
