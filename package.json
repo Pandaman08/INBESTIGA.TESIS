@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "allowScripts": {
+    "bcrypt@5.1.1": true
   }
 }

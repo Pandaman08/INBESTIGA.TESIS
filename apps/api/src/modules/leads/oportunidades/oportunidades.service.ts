@@ -86,6 +86,18 @@ export class OportunidadesService {
     });
   }
 
+  listarCitas() {
+    return this.prisma.citaVirtual.findMany({
+      orderBy: { inicio: 'asc' },
+      take: 200,
+      include: {
+        asesor: { select: { nombres: true, apellidos: true } },
+        oportunidad: { include: { lead: { include: { buyer: { select: { nombres: true, apellidos: true } } } } } },
+        historial: { orderBy: { fechaCambio: 'desc' }, take: 5 },
+      },
+    });
+  }
+
   /** Transición pedida por un usuario (solo las marcadas MANUAL en el contrato). */
   async transicionar(id: string, estadoNuevo: string, actor: Actor, motivo?: string) {
     if (estadoNuevo === 'DESCARTADA' && !motivo?.trim()) {

@@ -20,6 +20,7 @@ const SECRET = 'x'.repeat(40);
 describe('Control de acceso (guard global JWT + roles)', () => {
   let app: INestApplication;
   let jwt: JwtService;
+  const previousJwtSecret = process.env.JWT_SECRET;
   const usuarios: Record<string, any> = {
     admin: { id: 'admin', username: 'admin', email: 'a@x', rol: 'ADMIN', activo: true },
     asesor: { id: 'asesor', username: 'asesor', email: 's@x', rol: 'ASESOR', activo: true },
@@ -33,6 +34,7 @@ describe('Control de acceso (guard global JWT + roles)', () => {
 
   beforeAll(async () => {
     delete process.env.OPENWA_WEBHOOK_SECRET;
+    process.env.JWT_SECRET = SECRET;
     const mod = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET })] }),
@@ -54,7 +56,11 @@ describe('Control de acceso (guard global JWT + roles)', () => {
     jwt = mod.get(JwtService);
   });
 
-  afterAll(() => app.close());
+  afterAll(async () => {
+    if (previousJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousJwtSecret;
+    await app.close();
+  });
 
   const token = (id: string) => `Bearer ${jwt.sign({ sub: id })}`;
 

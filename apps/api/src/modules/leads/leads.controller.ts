@@ -49,6 +49,12 @@ export class LeadsController {
     return this.oportunidades.listar({ buyerId, estado });
   }
 
+  @Get('citas')
+  @ApiOperation({ summary: 'Consultar citas comerciales virtuales de LEADS' })
+  citas() {
+    return this.oportunidades.listarCitas();
+  }
+
   @Get('oportunidades/:id')
   @ApiOperation({ summary: 'Detalle de la oportunidad con historial, diagnósticos, propuestas versionadas, objeciones y citas' })
   obtener(@Param('id') id: string) {

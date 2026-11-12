@@ -68,6 +68,18 @@ export const api = {
       body: JSON.stringify({ conversacionId, contenido, clientMessageId }),
     }),
   getTimelineConversacion: (conversacionId: string) => fetchApi(`/leads/conversaciones/${conversacionId}/timeline`),
+  getLeadEvents: (params: Record<string, string> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchApi(`/leads/eventos${query ? `?${query}` : ''}`);
+  },
+  getLeadStates: () => fetchApi('/leads/estados'),
+  getOpportunities: (params: Record<string, string> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchApi(`/leads/oportunidades${query ? `?${query}` : ''}`);
+  },
+  getOpportunity: (id: string) => fetchApi(`/leads/oportunidades/${id}`),
+  transitionOpportunity: (id: string, estado: string, motivo?: string) => fetchApi(`/leads/oportunidades/${id}/transiciones`, { method: 'POST', body: JSON.stringify({ estado, motivo }) }),
+  getLeadAppointments: () => fetchApi('/leads/citas'),
   limpiarConversacion: (id: string) =>
     fetchApi(`/negotiation/conversacion/${id}/limpiar`, {
       method: 'POST',
@@ -79,6 +91,10 @@ export const api = {
 
   // Dashboard & ETL
   getDashboardOverview: () => fetchApi('/dashboard/overview'),
+  getLeadsDashboard: () => fetchApi('/dashboard/leads'),
+  runLeadsEtl: (corte: string) =>
+    fetchApi('/dashboard/leads/etl', { method: 'POST', body: JSON.stringify({ corte }) }),
+  getLeadsReport: (reporte: 'r1' | 'r2' | 'r3' | 'r4') => fetchApi(`/dashboard/leads/reportes/${reporte}`),
   runEtl: () => fetchApi('/etl/run', { method: 'POST' }),
   getEtlOverview: () => fetchApi('/etl/overview'),
 
